@@ -24,13 +24,13 @@ public:
         int spec_size = 0;
         int spec_buffer_size = 0;
         int buffer_size = 0;
-        ippsFFTGetSize_R_32f(bits, IPP_FFT_DIV_INV_BY_N, ippAlgHintNone, &spec_size, &spec_buffer_size, &buffer_size);
+        ippsFFTGetSize_R_32f (bits, IPP_FFT_NODIV_BY_ANY, ippAlgHintNone, &spec_size, &spec_buffer_size, &buffer_size);
 
         spec_ = std::make_unique<Ipp8u[]>(spec_size);
         spec_buffer_ = std::make_unique <Ipp8u[]>(spec_buffer_size);
         buffer_ = std::make_unique<Ipp8u[]>(buffer_size);
 
-        ippsFFTInit_R_32f(&ipp_specs_, bits, IPP_FFT_DIV_INV_BY_N, ippAlgHintNone, spec_.get(), spec_buffer_.get());
+        ippsFFTInit_R_32f (&ipp_specs_, bits, IPP_FFT_NODIV_BY_ANY, ippAlgHintNone, spec_.get(), spec_buffer_.get());
     }
 
     void transformRealForward(float* data) {
@@ -42,7 +42,7 @@ public:
     }
 
     void transformRealInverse(float* data) {
-        // data[1] = data[size_];
+        data[1] = 0; // Should be data[size_], but we won't be using that
         ippsFFTInv_PermToR_32f_I((Ipp32f*)data, ipp_specs_, buffer_.get());
         // memset(data + size_, 0, size_ * sizeof(float));
     }

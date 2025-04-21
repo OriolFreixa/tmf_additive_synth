@@ -3,7 +3,7 @@
 
     FFT.h
     Created: 14 Jan 2023 6:50:14pm
-    Author:  ofrei
+    Author:  Oriol Freixa (TeMuFra)
 
   ==============================================================================
 */

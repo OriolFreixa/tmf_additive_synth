@@ -94,6 +94,8 @@ namespace tmf
 
         float getWaveSample (float phase)
         {
+            jassert(juce::MathConstants<float>::twoPi >= phase);
+            jassert(phase >= 0);
             double sample = phase / radiantsPerSample;
 
             int firstSample = sample;

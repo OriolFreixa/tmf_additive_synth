@@ -11,6 +11,7 @@
 #pragma once
 #include "tmf_intercept_synth/tmf_intercept_synth.h"
 #include "../FFT.h"
+#include "AdditiveSynthHarmonicCollector.h"
 
 static constexpr int waveTableOrder = 11;
 static constexpr int waveTableSize = 1 << waveTableOrder;
@@ -22,13 +23,19 @@ namespace tmf
     class VoiceInterceptorAdditiveSynth : public tmf::VoiceInterceptorGenerator
     {
     public:
-        VoiceInterceptorAdditiveSynth() : fourierTransform (waveTableOrder)
+        VoiceInterceptorAdditiveSynth() : fourierTransform (waveTableOrder), frequency (0.0f), sampleRate (0.0f)
         {
             // Initialize the sine wave parameters
             phase = 0.0f;
             phaseIncrement = 0.0f;
             waveTable.fill (0.0f);
             needToRefreshWaveTable = true;
+        }
+
+        void addHarmonicCollector (shared_ptr<AdditiveSynthHarmonicCollector> collector)
+        {
+            jassert (sampleRate == 0.0f); // Collectors must be created before starting the synth
+            harmonicCollectors.push_back (collector);
         }
 
         void startNote (int midiNoteNumber,
@@ -82,7 +89,11 @@ namespace tmf
         void collectHarmonics()
         {
             waveTable.fill (0.0f);
-            waveTable[2] = 1;
+            // waveTable[2] = 1;
+            for (auto& collector : harmonicCollectors)
+            {
+                collector->collectHarmonics (waveTable.data(), waveTableSize);
+            }
 
             // Remove harms highter than nyquist frequency
         }
@@ -119,10 +130,12 @@ namespace tmf
 
         float phase, phaseIncrement;
         float frequency;
-        float sampleRate;
+        float sampleRate = 0;
 
         array<float, waveTableSize> waveTable;
         FourierTransform fourierTransform;
         bool needToRefreshWaveTable;
+
+        vector<shared_ptr<AdditiveSynthHarmonicCollector>> harmonicCollectors;
     };
 }

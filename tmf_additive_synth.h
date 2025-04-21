@@ -5,7 +5,11 @@
 #include "tmf_intercept_synth/tmf_intercept_synth.h"
 
 #include "AdditiveSynth/VoiceInterceptorAdditiveSynth.h"
+#include "AdditiveSynth/VoiceInterceptorAdditiveSynthManager.h"
 #include "AdditiveSynth/AdditiveSynthHarmonicCollector.h"
+
+// Examples
+#include "AdditiveSynth/CollectorExamples/HarmonicCollectorSine.h"
 
 /*
 BEGIN_JUCE_MODULE_DECLARATION

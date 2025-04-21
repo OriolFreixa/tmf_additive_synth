@@ -15,16 +15,10 @@ namespace tmf
     class AdditiveSynthHarmonicCollector
     {
     public:
-        AdditiveSynthHarmonicCollector (int tableSize)
-        {        
-            this->tableSize = tableSize;
-        }
+        AdditiveSynthHarmonicCollector () = default;
         virtual ~AdditiveSynthHarmonicCollector() = default;
 
-        virtual void collectHarmonics(float* data) = 0;
-
-    private:
-        int tableSize;
+        virtual void collectHarmonics(float* data, int dataSize) = 0;
     };
 
     class HarmonicCollectorManagerInterface

@@ -25,7 +25,6 @@ namespace tmf
     public:
         VoiceInterceptorAdditiveSynth() : fourierTransform (waveTableOrder), frequency (0.0f), sampleRate (0.0f)
         {
-            // Initialize the sine wave parameters
             phase = 0.0f;
             phaseIncrement = 0.0f;
             waveTable.fill (0.0f);
@@ -89,13 +88,12 @@ namespace tmf
         void collectHarmonics()
         {
             waveTable.fill (0.0f);
-            // waveTable[2] = 1;
             for (auto& collector : harmonicCollectors)
             {
                 collector->collectHarmonics (waveTable.data(), waveTableSize);
             }
 
-            // Remove harms highter than nyquist frequency
+            // TODO: Remove harms highter than nyquist frequency
         }
 
         void generateWaveTable()

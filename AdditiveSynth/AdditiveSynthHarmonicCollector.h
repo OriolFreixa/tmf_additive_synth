@@ -27,6 +27,7 @@ namespace tmf
         HarmonicCollectorManagerInterface() = default;
         virtual ~HarmonicCollectorManagerInterface() = default;
         virtual shared_ptr<AdditiveSynthHarmonicCollector> getOrCreateHarmonicCollector (int index) = 0;
+        virtual string getId() const { return typeid(*this).name(); }
     };
 
     template <class HC>
@@ -36,6 +37,15 @@ namespace tmf
 
     public:
         HarmonicCollectorManager() = default;
+        string getId() const override 
+        { 
+            juce::String className = typeid (HC).name(); 
+            className = className.replace ("class", "")
+                            .replace ("tmf::", "")
+                            .replace ("HarmonicCollector", "")
+                            .replace (" ", "");
+            return className.toStdString();
+        }
 
         virtual shared_ptr<AdditiveSynthHarmonicCollector> getOrCreateHarmonicCollector (int index) override
         {

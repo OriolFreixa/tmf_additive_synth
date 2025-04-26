@@ -57,14 +57,29 @@ namespace tmf
         {
             // TODO
             auto result = make_unique<juce::AudioProcessorParameterGroup> ("ADDITIVESYNTH", "ADDITIVESYNTH", "_");
-
+            int numOfCollectorManagers = harmonicCollectorManagers.size();
+            for (auto collectorManager : harmonicCollectorManagers)
+            {
+                auto id = collectorManager->getId();
+                result->addChild (make_unique<juce::AudioParameterFloat> (juce::ParameterID { id + "_LEVEL", 1 }, id + "Level", juce::NormalisableRange<float> { 0, 1, 0.001, 0.8 }, 0.5));
+                result->addChild (make_unique<juce::AudioParameterInt> (juce::ParameterID { id + "_ORDER", 1 }, id + "Order", -1, numOfCollectorManagers, -1));
+                result->addChild (make_unique<juce::AudioParameterFloat> (juce::ParameterID { id + "_PAN", 1 }, id + "Pan", juce::NormalisableRange<float> { -100, 100, 0.001, 1 }, 0));
+            }
             return std::move (result);
         };
 
         vector<string> getAudioParametersIds() override
         {
-            // TODO: For each collector we need: Order, Power, Pan
-            return {};
+            vector<string> ids;
+            for (auto collectorManager : harmonicCollectorManagers)
+            {
+                auto id = collectorManager->getId();
+                ids.push_back (id + "_LEVEL");
+                ids.push_back (id + "_ORDER");
+                ids.push_back (id + "_PAN");
+            }
+            
+            return ids;
         }
 
         virtual void setupAPVTS (juce::AudioProcessorValueTreeState& apvts) override

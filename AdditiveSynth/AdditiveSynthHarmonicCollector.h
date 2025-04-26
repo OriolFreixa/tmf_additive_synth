@@ -39,6 +39,11 @@ namespace tmf
         HarmonicCollectorManager() = default;
         string getId() const override 
         { 
+            return getIdStatic();
+        }
+
+        static string getIdStatic() 
+        { 
             juce::String className = typeid (HC).name(); 
             className = className.replace ("class", "")
                             .replace ("tmf::", "")

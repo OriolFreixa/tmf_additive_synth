@@ -15,6 +15,13 @@
 
 namespace tmf
 {
+    namespace BaseParameterIdSuffixes
+    {
+        inline static const string level = "_LEVEL";
+        inline static const string order = "_ORDER";
+        inline static const string pan = "_PAN";
+    }
+
     using namespace std;
     class VoiceInterceptorAdditiveSynthManager : public VoiceInterceptorManager<VoiceInterceptorAdditiveSynth>,
                                                  public VoiceInterceptorManagerWithParameters
@@ -61,9 +68,9 @@ namespace tmf
             for (auto collectorManager : harmonicCollectorManagers)
             {
                 auto id = collectorManager->getId();
-                result->addChild (make_unique<juce::AudioParameterFloat> (juce::ParameterID { id + "_LEVEL", 1 }, id + "Level", juce::NormalisableRange<float> { 0, 1, 0.001, 0.8 }, 0.5));
-                result->addChild (make_unique<juce::AudioParameterInt> (juce::ParameterID { id + "_ORDER", 1 }, id + "Order", -1, numOfCollectorManagers, -1));
-                result->addChild (make_unique<juce::AudioParameterFloat> (juce::ParameterID { id + "_PAN", 1 }, id + "Pan", juce::NormalisableRange<float> { -100, 100, 0.001, 1 }, 0));
+                result->addChild (make_unique<juce::AudioParameterFloat> (juce::ParameterID { id + BaseParameterIdSuffixes::level, 1 }, id + "Level", juce::NormalisableRange<float> { 0, 1, 0.001, 0.8 }, 0.5));
+                result->addChild (make_unique<juce::AudioParameterInt> (juce::ParameterID { id + BaseParameterIdSuffixes::order, 1 }, id + "Order", -1, numOfCollectorManagers, -1));
+                result->addChild (make_unique<juce::AudioParameterFloat> (juce::ParameterID { id + BaseParameterIdSuffixes::pan, 1 }, id + "Pan", juce::NormalisableRange<float> { -100, 100, 0.001, 1 }, 0));
             }
             return std::move (result);
         };

@@ -15,13 +15,6 @@
 
 namespace tmf
 {
-    namespace BaseParameterIdSuffixes
-    {
-        inline static const string level = "_LEVEL";
-        inline static const string order = "_ORDER";
-        inline static const string pan = "_PAN";
-    }
-
     using namespace std;
     class VoiceInterceptorAdditiveSynthManager : public VoiceInterceptorManager<VoiceInterceptorAdditiveSynth>,
                                                  public VoiceInterceptorManagerWithParameters
@@ -39,9 +32,9 @@ namespace tmf
         {
             harmonicCollectorManagers.push_back (collector);
 
-            if (dynamic_cast<HarmonicCollectorManagerWithParameters*> (collector.get()))
+            if (dynamic_cast<HarmonicCollectorManagerWithCustomParameters*> (collector.get()))
             {
-                harmonicCollectorManagersWithParameters.push_back (dynamic_pointer_cast<HarmonicCollectorManagerWithParameters> (collector));
+                harmonicCollectorManagersWithParameters.push_back (dynamic_pointer_cast<HarmonicCollectorManagerWithCustomParameters> (collector));
             }
         }
 
@@ -64,14 +57,12 @@ namespace tmf
         {
             // TODO
             auto result = make_unique<juce::AudioProcessorParameterGroup> ("ADDITIVESYNTH", "ADDITIVESYNTH", "_");
-            int numOfCollectorManagers = harmonicCollectorManagers.size();
             for (auto collectorManager : harmonicCollectorManagers)
             {
-                auto id = collectorManager->getId();
-                result->addChild (make_unique<juce::AudioParameterFloat> (juce::ParameterID { id + BaseParameterIdSuffixes::level, 1 }, id + "Level", juce::NormalisableRange<float> { 0, 1, 0.001, 0.8 }, 0.5));
-                result->addChild (make_unique<juce::AudioParameterInt> (juce::ParameterID { id + BaseParameterIdSuffixes::order, 1 }, id + "Order", -1, numOfCollectorManagers, -1));
-                result->addChild (make_unique<juce::AudioParameterFloat> (juce::ParameterID { id + BaseParameterIdSuffixes::pan, 1 }, id + "Pan", juce::NormalisableRange<float> { -100, 100, 0.001, 1 }, 0));
+                auto params = collectorManager->getAudioParameters();
+                result->addChild (std::move (params));
             }
+
             return std::move (result);
         };
 
@@ -80,10 +71,8 @@ namespace tmf
             vector<string> ids;
             for (auto collectorManager : harmonicCollectorManagers)
             {
-                auto id = collectorManager->getId();
-                ids.push_back (id + "_LEVEL");
-                ids.push_back (id + "_ORDER");
-                ids.push_back (id + "_PAN");
+                auto idsToAdd = collectorManager->getAudioParametersIds();
+                ids.insert (ids.end(), idsToAdd.begin(), idsToAdd.end());
             }
             
             return ids;
@@ -91,13 +80,14 @@ namespace tmf
 
         virtual void setupAPVTS (juce::AudioProcessorValueTreeState& apvts) override
         {
-            auto params = getAudioParametersIds();
-            for (auto param : params)
+            for (auto collectorManager : harmonicCollectorManagers)
             {
-                apvts.addParameterListener (param, this);
+                auto idsToAdd = collectorManager->getAudioParametersIds();
+                for (auto param : idsToAdd)
+                {
+                    apvts.addParameterListener (param, collectorManager.get());
+                }
             }
-
-            // TODO: Collect the custom parameters for each collector
         }
 
         void parameterChanged (const juce::String& parameterID, float newValue) override
@@ -114,6 +104,6 @@ namespace tmf
             }
         }
         vector<shared_ptr<HarmonicCollectorManagerInterface>> harmonicCollectorManagers;
-        vector<shared_ptr<HarmonicCollectorManagerWithParameters>> harmonicCollectorManagersWithParameters;
+        vector<shared_ptr<HarmonicCollectorManagerWithCustomParameters>> harmonicCollectorManagersWithParameters;
     };
 }

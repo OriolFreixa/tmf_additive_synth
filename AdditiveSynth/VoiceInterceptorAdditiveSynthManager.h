@@ -22,6 +22,14 @@ namespace tmf
         inline static const string pan = "_PAN";
     }
 
+    struct HarmonicCollectorManagerWithBaseParams
+    {
+        shared_ptr<HarmonicCollectorManagerInterface> harmonicCollectorManager;
+        int order = -1;
+        int pan = 0;
+        float level = 0.5;
+    };
+
     using namespace std;
     class VoiceInterceptorAdditiveSynthManager : public VoiceInterceptorManager<VoiceInterceptorAdditiveSynth>,
                                                  public VoiceInterceptorManagerWithParameters
@@ -37,7 +45,9 @@ namespace tmf
 
         void addCollector (shared_ptr<HarmonicCollectorManagerInterface> collector)
         {
-            harmonicCollectorManagers.push_back (collector);
+            auto collectorWithBaseParams = HarmonicCollectorManagerWithBaseParams();
+            collectorWithBaseParams.harmonicCollectorManager = collector;
+            harmonicCollectorManagers.push_back (collectorWithBaseParams);
 
             if (dynamic_cast<HarmonicCollectorManagerWithParameters*> (collector.get()))
             {
@@ -67,7 +77,7 @@ namespace tmf
             int numOfCollectorManagers = harmonicCollectorManagers.size();
             for (auto collectorManager : harmonicCollectorManagers)
             {
-                auto id = collectorManager->getId();
+                auto id = collectorManager.harmonicCollectorManager->getId();
                 result->addChild (make_unique<juce::AudioParameterFloat> (juce::ParameterID { id + BaseParameterIdSuffixes::level, 1 }, id + "Level", juce::NormalisableRange<float> { 0, 1, 0.001, 0.8 }, 0.5));
                 result->addChild (make_unique<juce::AudioParameterInt> (juce::ParameterID { id + BaseParameterIdSuffixes::order, 1 }, id + "Order", -1, numOfCollectorManagers, -1));
                 result->addChild (make_unique<juce::AudioParameterFloat> (juce::ParameterID { id + BaseParameterIdSuffixes::pan, 1 }, id + "Pan", juce::NormalisableRange<float> { -100, 100, 0.001, 1 }, 0));
@@ -80,7 +90,7 @@ namespace tmf
             vector<string> ids;
             for (auto collectorManager : harmonicCollectorManagers)
             {
-                auto id = collectorManager->getId();
+                auto id = collectorManager.harmonicCollectorManager->getId();
                 ids.push_back (id + "_LEVEL");
                 ids.push_back (id + "_ORDER");
                 ids.push_back (id + "_PAN");
@@ -102,6 +112,7 @@ namespace tmf
 
         void parameterChanged (const juce::String& parameterID, float newValue) override
         {
+
         }
 
     private:
@@ -109,11 +120,11 @@ namespace tmf
         {
             for (auto collectorManager : harmonicCollectorManagers)
             {
-                auto hc = collectorManager->getOrCreateHarmonicCollector (index);
+                auto hc = collectorManager.harmonicCollectorManager->getOrCreateHarmonicCollector (index);
                 interceptor->addHarmonicCollector (hc);
             }
         }
-        vector<shared_ptr<HarmonicCollectorManagerInterface>> harmonicCollectorManagers;
+        vector<HarmonicCollectorManagerWithBaseParams> harmonicCollectorManagers;
         vector<shared_ptr<HarmonicCollectorManagerWithParameters>> harmonicCollectorManagersWithParameters;
     };
 }

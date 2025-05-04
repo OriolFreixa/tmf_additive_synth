@@ -126,11 +126,4 @@ namespace tmf
         float level = 0, pan = 0;
         int order = -1;
     };
-
-    class HarmonicCollectorManagerWithCustomParameters
-    {
-    public:
-        HarmonicCollectorManagerWithCustomParameters() = default;
-        virtual ~HarmonicCollectorManagerWithCustomParameters() = default;
-    };
 }

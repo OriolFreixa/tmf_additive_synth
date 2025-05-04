@@ -31,11 +31,6 @@ namespace tmf
         void addCollector (shared_ptr<HarmonicCollectorManagerInterface> collector)
         {
             harmonicCollectorManagers.push_back (collector);
-
-            if (dynamic_cast<HarmonicCollectorManagerWithCustomParameters*> (collector.get()))
-            {
-                harmonicCollectorManagersWithParameters.push_back (dynamic_pointer_cast<HarmonicCollectorManagerWithCustomParameters> (collector));
-            }
         }
 
         virtual shared_ptr<VoiceInterceptor> getOrCreateVoiceInterceptor (int index) override
@@ -55,7 +50,7 @@ namespace tmf
 
         unique_ptr<juce::AudioProcessorParameterGroup> getAudioParameters() override
         {
-            // TODO
+            // TODO: Add main parameters
             auto result = make_unique<juce::AudioProcessorParameterGroup> ("ADDITIVESYNTH", "ADDITIVESYNTH", "_");
             for (auto collectorManager : harmonicCollectorManagers)
             {
@@ -104,6 +99,5 @@ namespace tmf
             }
         }
         vector<shared_ptr<HarmonicCollectorManagerInterface>> harmonicCollectorManagers;
-        vector<shared_ptr<HarmonicCollectorManagerWithCustomParameters>> harmonicCollectorManagersWithParameters;
     };
 }

@@ -51,6 +51,10 @@ namespace tmf
         void prepareToPlay (double sampleRate, int samplesPerBlock, int numOutputChannels) override
         {
             this->sampleRate = sampleRate;
+            for (auto& collector : harmonicCollectors)
+            {
+                collector->prepareToPlay (sampleRate, numOutputChannels);
+            }
         }
 
         void processBlock (juce::AudioBuffer<float>& buffer, int startSample, int numSamples) override
@@ -74,25 +78,38 @@ namespace tmf
                 }
             }
 
+            for (auto& collector : harmonicCollectors)
+            {
+                collector->advanceSamples (numSamples);
+            }
+
             phase = p;
+        }
+
+        void markWavetableAsNeedsRefresh()
+        {
+            needToRefreshWaveTable = true;
         }
 
         void refreshWaveTable()
         {
-            collectHarmonics();
+            auto keepRefreshing = collectHarmonics();
             generateWaveTable();
-            needToRefreshWaveTable = false;
+            needToRefreshWaveTable = keepRefreshing;
         }
 
     private:
-        void collectHarmonics()
+        bool collectHarmonics()
         {
             waveTable.fill (0.0f);
+            auto keepRefreshing = false;
             for (auto& collector : harmonicCollectors)
             {
                 collector->collectHarmonics (waveTable.data(), waveTableSize);
+                keepRefreshing = keepRefreshing || collector->waveTableRefreshNeeded();
             }
 
+            return keepRefreshing;
             // TODO: Remove harms highter than nyquist frequency
         }
 

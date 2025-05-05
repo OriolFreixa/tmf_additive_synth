@@ -81,12 +81,17 @@ namespace tmf
                 for (auto param : idsToAdd)
                 {
                     apvts.addParameterListener (param, collectorManager.get());
+                    apvts.addParameterListener (param, this);
                 }
             }
         }
 
         void parameterChanged (const juce::String& parameterID, float newValue) override
         {
+            for (auto interceptor : voiceInterceptors)
+            {
+                interceptor->markWavetableAsNeedsRefresh();
+            }
         }
 
     private:

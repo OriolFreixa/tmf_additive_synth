@@ -17,8 +17,9 @@ namespace tmf
     public:
         void collectHarmonics (float* data, int tableSize) override
         {
-            data[2] = 1.0f;
+            jassert (sampleRate > 0);
+            jassert (numChannels > 0);
+            data[2] = level.getCurrentValue();
         }
-
     };
 }

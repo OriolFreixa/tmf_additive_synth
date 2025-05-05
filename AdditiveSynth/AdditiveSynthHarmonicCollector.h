@@ -19,13 +19,51 @@ namespace tmf
         inline static const string pan = "_PAN";
     }
 
+    struct AdditiveSynthHarmonicCollectorParams
+    {
+        float level = 0.5;
+        float pan = 0;
+        int order = -1;
+    };
+
     class AdditiveSynthHarmonicCollector
     {
     public:
         AdditiveSynthHarmonicCollector () = default;
         virtual ~AdditiveSynthHarmonicCollector() = default;
 
-        virtual void collectHarmonics(float* data, int dataSize) = 0;
+        virtual void collectHarmonics (float* data, int dataSize) = 0;
+
+        virtual bool waveTableRefreshNeeded() const { return level.isSmoothing() || pan.isSmoothing(); }
+
+        void setParams (AdditiveSynthHarmonicCollectorParams params)
+        {
+            this->level.setTargetValue (params.level);
+            this->pan.setTargetValue (params.pan);
+            this->order = params.order;
+        }
+
+        void prepareToPlay (double sampleRate, int numOutputChannels)
+        {
+            this->sampleRate = sampleRate;
+            this->numChannels = numOutputChannels;
+            level.reset(sampleRate, 0.01);
+            pan.reset(sampleRate, 0.01);
+        }
+
+        void advanceSamples (int numSamples)
+        {
+            level.skip (numSamples);
+            pan.skip (numSamples);
+        }
+
+    protected:
+        juce::SmoothedValue<float> level = 0.5;
+        juce::SmoothedValue<float> pan = 0;
+        int order = -1;
+
+        float sampleRate = 0;
+        int numChannels = 0;
     };
 
     class HarmonicCollectorManagerInterface : public juce::AudioProcessorValueTreeState::Listener
@@ -66,7 +104,7 @@ namespace tmf
             return id;
         }
 
-        int getOrder() { return order; }
+        int getOrder() { return params->order; }
 
         virtual shared_ptr<AdditiveSynthHarmonicCollector> getOrCreateHarmonicCollector (int index) override
         {
@@ -77,6 +115,7 @@ namespace tmf
             if (!harmonicCollectors[index])
             {
                 harmonicCollectors[index] = make_shared<HC>();
+                harmonicCollectors[index]->setParams (params);
             }
             return dynamic_pointer_cast<AdditiveSynthHarmonicCollector> (harmonicCollectors[index]);
         }
@@ -108,22 +147,26 @@ namespace tmf
         {
             if (parameterID == (String)(id + BaseParameterIdSuffixes::level))
             {
-                level = newValue;
+                params.level = newValue;
             }
             else if (parameterID == (String)(id + BaseParameterIdSuffixes::order))
             {
-                order = newValue;
+                params.order = newValue;
             }
             else if (parameterID == (String) (id + BaseParameterIdSuffixes::pan))
             {
-                pan = newValue;
+                params.pan = newValue;
+            }
+
+            for (auto& collector : harmonicCollectors)
+            {
+                collector->setParams(params);
             }
         }
 
     protected:
         inline static string id = "";
         vector<shared_ptr<HC>> harmonicCollectors;
-        float level = 0, pan = 0;
-        int order = -1;
+        AdditiveSynthHarmonicCollectorParams params;
     };
 }

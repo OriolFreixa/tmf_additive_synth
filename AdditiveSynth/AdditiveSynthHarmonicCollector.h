@@ -32,7 +32,7 @@ namespace tmf
         AdditiveSynthHarmonicCollector () = default;
         virtual ~AdditiveSynthHarmonicCollector() = default;
 
-        virtual void collectHarmonics (float* data, int dataSize) = 0;
+        virtual void collectHarmonics (juce::AudioBuffer<float>& audioBuffer, int dataSize) = 0;
 
         virtual bool waveTableRefreshNeeded() const { return level.isSmoothing() || pan.isSmoothing(); }
 
@@ -68,6 +68,28 @@ namespace tmf
         virtual void setCurrentNote (int note) { currentNote = note; }
 
     protected:
+
+        void applyPanAndGainAndRenderToBuffer(juce::AudioBuffer<float>& audioBlock, std::vector<float> data)
+        {
+            jassert (audioBlock.getNumChannels() == 2);
+
+            int tableSize = data.size();
+            juce::FloatVectorOperations::multiply (data.data(), level.getCurrentValue(), tableSize);
+
+            // From [-100, 100] to [0, 1]
+            auto normalisedPan = (pan.getCurrentValue() * 0.005) + 0.5;
+
+            auto leftValue = (1.0 - normalisedPan) * 2;
+            auto rightValue = normalisedPan * 2;
+
+            auto auxVector = std::vector<float> (tableSize);
+            juce::FloatVectorOperations::multiply (auxVector.data(), data.data(), leftValue, tableSize);
+            juce::FloatVectorOperations::add (audioBlock.getWritePointer (0), auxVector.data(), tableSize);
+
+            juce::FloatVectorOperations::multiply (auxVector.data(), data.data(), rightValue, tableSize);
+            juce::FloatVectorOperations::add (audioBlock.getWritePointer (1), auxVector.data(), tableSize);
+        }
+
         juce::SmoothedValue<float> level = 0.5;
         juce::SmoothedValue<float> pan = 0;
         int order = -1;

@@ -27,7 +27,7 @@ namespace tmf
         {
             phase = 0.0f;
             phaseIncrement = 0.0f;
-            waveTable.fill (0.0f);
+            waveTableBuffer.clear();
             needToRefreshWaveTable = true;
         }
 
@@ -84,7 +84,7 @@ namespace tmf
                 float* channelData = buffer.getWritePointer (channel, startSample);
                 for (int sample = 0; sample < numSamples; ++sample)
                 {
-                    channelData[sample] += getWaveSample(p);
+                    channelData[sample] += getWaveSample(p, channel);
                     p += phaseIncrement;
                     if (p >= juce::MathConstants<float>::twoPi)
                         p -= juce::MathConstants<float>::twoPi;
@@ -114,11 +114,11 @@ namespace tmf
     private:
         bool collectHarmonics()
         {
-            waveTable.fill (0.0f);
+            waveTableBuffer.clear();
             auto keepRefreshing = false;
             for (auto& collector : harmonicCollectors)
             {
-                collector->collectHarmonics (waveTable.data(), waveTableSize);
+                collector->collectHarmonics (waveTableBuffer, waveTableSize);
                 keepRefreshing = keepRefreshing || collector->waveTableRefreshNeeded();
             }
 
@@ -128,14 +128,20 @@ namespace tmf
 
         void generateWaveTable()
         {
-            fourierTransform.transformRealInverse (waveTable.data());
+            for (int i = 0; i < waveTableBuffer.getNumChannels(); ++i)
+            {
+                auto* channelData = waveTableBuffer.getWritePointer (i);
+
+                fourierTransform.transformRealInverse (channelData);
+            }
         }
 
-        float getWaveSample (float phase)
+        float getWaveSample (float phase, int channel)
         {
             jassert(juce::MathConstants<float>::twoPi >= phase);
             jassert(phase >= 0);
             double sample = phase / radiantsPerSample;
+            auto waveTable = waveTableBuffer.getReadPointer (channel);
 
             int firstSample = sample;
             double sampleDecimal = sample - firstSample;
@@ -145,10 +151,10 @@ namespace tmf
                
             // Read the corresponding values
             jassert (firstSample >= 0 && firstSample < waveTableSize);
-            float firstSampleValue = waveTable.at (firstSample);
+            float firstSampleValue = waveTable[firstSample];
 
             jassert (secondSample >= 0 && secondSample < waveTableSize);
-            float secondSampleValue = waveTable.at (secondSample);
+            float secondSampleValue = waveTable[secondSample];
 
             // Interpolate the two obtained values
             float sampleValue = firstSampleValue * (1 - sampleDecimal) + secondSampleValue * sampleDecimal;
@@ -160,7 +166,7 @@ namespace tmf
         float frequency;
         float sampleRate = 0;
 
-        array<float, waveTableSize> waveTable;
+        juce::AudioBuffer<float> waveTableBuffer = juce::AudioBuffer<float>(2, waveTableSize);
         FourierTransform fourierTransform;
         bool needToRefreshWaveTable;
 

@@ -40,8 +40,8 @@ namespace tmf
         {
             if (currentNote == -1)
             {
-                this->level = params.level;
-                this->pan = params.pan;
+                this->level.setCurrentAndTargetValue(params.level);
+                this->pan.setCurrentAndTargetValue(params.pan);
             }
             else
             {

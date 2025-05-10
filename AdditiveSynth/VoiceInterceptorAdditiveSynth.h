@@ -53,14 +53,11 @@ namespace tmf
             }
         }
 
-        void stopNote (float velocity, bool allowTailOff) override
+        void clearCurrentNote() override 
         {
-            if (!allowTailOff)
+            for (auto& collector : harmonicCollectors)
             {
-                for (auto& collector : harmonicCollectors)
-                {
-                    collector->setCurrentNote (-1);
-                }
+                collector->setCurrentNote (-1);
             }
         }
 
@@ -112,14 +109,6 @@ namespace tmf
             auto keepRefreshing = collectHarmonics();
             generateWaveTable();
             needToRefreshWaveTable = keepRefreshing;
-
-            if (!keepRefreshing)
-            {
-                for (auto& collector : harmonicCollectors)
-                {
-                    collector->setCurrentNote (-1);
-                }
-            }
         }
 
     private:

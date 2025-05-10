@@ -38,8 +38,16 @@ namespace tmf
 
         void setParams (AdditiveSynthHarmonicCollectorParams params)
         {
-            this->level.setTargetValue (params.level);
-            this->pan.setTargetValue (params.pan);
+            if (currentNote == -1)
+            {
+                this->level = params.level;
+                this->pan = params.pan;
+            }
+            else
+            {
+                this->level.setTargetValue (params.level);
+                this->pan.setTargetValue (params.pan);
+            }
             this->order = params.order;
         }
 
@@ -57,6 +65,8 @@ namespace tmf
             pan.skip (numSamples);
         }
 
+        virtual void setCurrentNote (int note) { currentNote = note; }
+
     protected:
         juce::SmoothedValue<float> level = 0.5;
         juce::SmoothedValue<float> pan = 0;
@@ -64,6 +74,7 @@ namespace tmf
 
         float sampleRate = 0;
         int numChannels = 0;
+        int currentNote = -1;
     };
 
     class HarmonicCollectorManagerInterface : public juce::AudioProcessorValueTreeState::Listener
@@ -72,7 +83,7 @@ namespace tmf
         HarmonicCollectorManagerInterface() = default;
         virtual ~HarmonicCollectorManagerInterface() = default;
         virtual shared_ptr<AdditiveSynthHarmonicCollector> getOrCreateHarmonicCollector (int index) = 0;
-        virtual string getId() const { return typeid(*this).name(); }
+        virtual string getId() const = 0;
         virtual unique_ptr<juce::AudioProcessorParameterGroup> getAudioParameters() = 0;
         virtual vector<string> getAudioParametersIds() = 0;
     };
@@ -168,5 +179,6 @@ namespace tmf
         inline static string id = "";
         vector<shared_ptr<HC>> harmonicCollectors;
         AdditiveSynthHarmonicCollectorParams params;
+        int currentNote = -1;
     };
 }

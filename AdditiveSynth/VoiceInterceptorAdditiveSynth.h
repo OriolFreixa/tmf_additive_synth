@@ -46,6 +46,22 @@ namespace tmf
             phaseIncrement = (juce::MathConstants<float>::twoPi * frequency) / sampleRate;
 
             needToRefreshWaveTable = true;
+
+            for (auto& collector : harmonicCollectors)
+            {
+                collector->setCurrentNote (midiNoteNumber);
+            }
+        }
+
+        void stopNote (float velocity, bool allowTailOff) override
+        {
+            if (!allowTailOff)
+            {
+                for (auto& collector : harmonicCollectors)
+                {
+                    collector->setCurrentNote (-1);
+                }
+            }
         }
 
         void prepareToPlay (double sampleRate, int samplesPerBlock, int numOutputChannels) override
@@ -96,6 +112,14 @@ namespace tmf
             auto keepRefreshing = collectHarmonics();
             generateWaveTable();
             needToRefreshWaveTable = keepRefreshing;
+
+            if (!keepRefreshing)
+            {
+                for (auto& collector : harmonicCollectors)
+                {
+                    collector->setCurrentNote (-1);
+                }
+            }
         }
 
     private:

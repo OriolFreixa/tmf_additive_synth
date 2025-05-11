@@ -10,6 +10,7 @@
 
 // Examples
 #include "AdditiveSynth/CollectorExamples/HarmonicCollectorSine.h"
+#include "AdditiveSynth/CollectorExamples/HarmonicCollectorOctaves.h"
 
 /*
 BEGIN_JUCE_MODULE_DECLARATION

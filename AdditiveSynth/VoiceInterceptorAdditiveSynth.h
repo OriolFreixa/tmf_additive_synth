@@ -118,6 +118,8 @@ namespace tmf
             auto keepRefreshing = false;
             for (auto& collector : harmonicCollectors)
             {
+                if (collector->getOrder() == -1)
+                    continue;
                 collector->collectHarmonics (waveTableBuffer, waveTableSize);
                 keepRefreshing = keepRefreshing || collector->waveTableRefreshNeeded();
             }

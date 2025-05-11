@@ -32,6 +32,8 @@ namespace tmf
         AdditiveSynthHarmonicCollector () = default;
         virtual ~AdditiveSynthHarmonicCollector() = default;
 
+        int getOrder() const { return order; }
+
         virtual void collectHarmonics (juce::AudioBuffer<float>& audioBuffer, int dataSize) = 0;
 
         virtual bool waveTableRefreshNeeded() const { return level.isSmoothing() || pan.isSmoothing(); }

@@ -116,11 +116,14 @@ namespace tmf
         {
             waveTableBuffer.clear();
             auto keepRefreshing = false;
+
+            int nyquistFrequency = sampleRate / 2;
+            int nyquistHarmonic = (int) (nyquistFrequency / frequency);
             for (auto& collector : harmonicCollectors)
             {
                 if (collector->getOrder() == -1)
                     continue;
-                collector->collectHarmonics (waveTableBuffer, waveTableSize);
+                collector->collectHarmonics (waveTableBuffer, jmin(waveTableSize, nyquistHarmonic));
                 keepRefreshing = keepRefreshing || collector->waveTableRefreshNeeded();
             }
 

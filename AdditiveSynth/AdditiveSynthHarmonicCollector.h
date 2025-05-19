@@ -169,8 +169,13 @@ namespace tmf
 
         virtual vector<string> getAudioParametersIds()
         {
+            return getAudioParametersIdsStatic();
+        }
+
+        static vector<string> getAudioParametersIdsStatic()
+        {
             vector<string> ids;
-            auto id = getId();
+            auto id = getIdStatic();
             ids.push_back (id + "_LEVEL");
             ids.push_back (id + "_ORDER");
             ids.push_back (id + "_PAN");

@@ -34,6 +34,11 @@ namespace tmf
 
         int getOrder() const { return order; }
 
+        /// <summary>
+        /// Sets the harmonics of the collector
+        /// </summary>
+        /// <param name="audioBuffer">Input/output audio buffer. Content in the frequency domain in packed format. Info: https://www.intel.com/content/www/us/en/docs/ipp/developer-guide-reference/2022-0/packed-formats.html</param>
+        /// <param name="dataSize">Length of the audioBuffer</param>
         virtual void collectHarmonics (juce::AudioBuffer<float>& audioBuffer, int dataSize) = 0;
 
         virtual bool waveTableRefreshNeeded() const { return level.isSmoothing() || pan.isSmoothing(); }

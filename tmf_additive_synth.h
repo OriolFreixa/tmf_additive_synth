@@ -11,6 +11,7 @@
 // Examples
 #include "AdditiveSynth/CollectorExamples/HarmonicCollectorSine.h"
 #include "AdditiveSynth/CollectorExamples/HarmonicCollectorOctaves.h"
+#include "AdditiveSynth/CollectorExamples/HarmonicCollectorEnFifther.h"
 
 /*
 BEGIN_JUCE_MODULE_DECLARATION

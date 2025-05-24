@@ -123,7 +123,12 @@ namespace tmf
             {
                 if (collector->getOrder() == -1)
                     continue;
-                collector->collectHarmonics (waveTableBuffer, jmin(waveTableSize, nyquistHarmonic));
+
+                // The table has two entries for each harmonic (amplitude and phase)
+                // The first entries is reserved for DC component
+                // The second entry is for the last real nyquistHarmonic, which shouldn't be used
+                auto nyquistTableSize = (nyquistHarmonic * 2) + 2;
+                collector->collectHarmonics (waveTableBuffer, jmin (waveTableSize, nyquistTableSize));
                 keepRefreshing = keepRefreshing || collector->waveTableRefreshNeeded();
             }
 

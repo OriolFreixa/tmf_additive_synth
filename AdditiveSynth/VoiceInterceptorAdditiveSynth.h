@@ -12,6 +12,7 @@
 #include "tmf_intercept_synth/tmf_intercept_synth.h"
 #include "../FFT.h"
 #include "AdditiveSynthHarmonicCollector.h"
+#include <algorithm>
 
 static constexpr int waveTableOrder = 11;
 static constexpr int waveTableSize = 1 << waveTableOrder;
@@ -29,6 +30,7 @@ namespace tmf
             phaseIncrement = 0.0f;
             waveTableBuffer.clear();
             needToRefreshWaveTable = true;
+            needToOrderCollectors = true;
         }
 
         void addHarmonicCollector (shared_ptr<AdditiveSynthHarmonicCollector> collector)
@@ -106,9 +108,29 @@ namespace tmf
 
         void refreshWaveTable()
         {
+            if (needToOrderCollectors)
+                orderCollectors();
+
             auto keepRefreshing = collectHarmonics();
             generateWaveTable();
             needToRefreshWaveTable = keepRefreshing;
+        }
+
+        void markCollectorsAsNeedOrder()
+        {
+            needToOrderCollectors = true;
+        }
+
+        void orderCollectors()
+        {
+            std::sort (
+                this->harmonicCollectors.begin(), 
+                this->harmonicCollectors.end(), 
+                [] (const shared_ptr<AdditiveSynthHarmonicCollector>& a, const shared_ptr<AdditiveSynthHarmonicCollector>& b) {
+                    return a->getOrder() < b->getOrder();
+                });
+
+            needToOrderCollectors = false;
         }
 
     private:
@@ -179,6 +201,8 @@ namespace tmf
         juce::AudioBuffer<float> waveTableBuffer = juce::AudioBuffer<float>(2, waveTableSize);
         FourierTransform fourierTransform;
         bool needToRefreshWaveTable;
+
+        bool needToOrderCollectors;
 
         vector<shared_ptr<AdditiveSynthHarmonicCollector>> harmonicCollectors;
     };

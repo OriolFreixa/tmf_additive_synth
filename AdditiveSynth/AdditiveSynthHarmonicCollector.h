@@ -181,9 +181,9 @@ namespace tmf
         {
             vector<string> ids;
             auto id = getIdStatic();
-            ids.push_back (id + "_LEVEL");
-            ids.push_back (id + "_ORDER");
-            ids.push_back (id + "_PAN");
+            ids.push_back (id + BaseParameterIdSuffixes::level);
+            ids.push_back (id + BaseParameterIdSuffixes::order);
+            ids.push_back (id + BaseParameterIdSuffixes::pan);
 
             return ids;
         }

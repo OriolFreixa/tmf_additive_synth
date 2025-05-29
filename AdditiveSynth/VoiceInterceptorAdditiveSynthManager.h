@@ -91,6 +91,11 @@ namespace tmf
             for (auto interceptor : voiceInterceptors)
             {
                 interceptor->markWavetableAsNeedsRefresh();
+
+                if (parameterID.contains (BaseParameterIdSuffixes::order))
+                {
+                    interceptor->markCollectorsAsNeedOrder();
+                }
             }
         }
 

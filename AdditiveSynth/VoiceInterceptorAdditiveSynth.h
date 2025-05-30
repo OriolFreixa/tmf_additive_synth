@@ -31,6 +31,14 @@ namespace tmf
             waveTableBuffer.clear();
             needToRefreshWaveTable = true;
             needToOrderCollectors = true;
+
+            waveTableVolumeMultipliers = vector<float> (waveTableSize, 1.0f);
+
+            // We start at the first partial, and skip the phase indexs (odd)
+            for (int i = 2; i < waveTableSize; i += 2)
+            {
+                waveTableVolumeMultipliers[i] = 1.0f / (i / 2);
+            }
         }
 
         void addHarmonicCollector (shared_ptr<AdditiveSynthHarmonicCollector> collector)
@@ -154,6 +162,7 @@ namespace tmf
                 keepRefreshing = keepRefreshing || collector->waveTableRefreshNeeded();
             }
 
+
             return keepRefreshing;
             // TODO: Remove harms highter than nyquist frequency
         }
@@ -163,6 +172,7 @@ namespace tmf
             for (int i = 0; i < waveTableBuffer.getNumChannels(); ++i)
             {
                 auto* channelData = waveTableBuffer.getWritePointer (i);
+                juce::FloatVectorOperations::multiply (channelData, waveTableVolumeMultipliers.data(), waveTableSize);
 
                 fourierTransform.transformRealInverse (channelData);
             }
@@ -205,5 +215,6 @@ namespace tmf
         bool needToOrderCollectors;
 
         vector<shared_ptr<AdditiveSynthHarmonicCollector>> harmonicCollectors;
+        vector<float> waveTableVolumeMultipliers;
     };
 }

@@ -20,6 +20,14 @@ static constexpr double radiantsPerSample = juce::MathConstants<double>::twoPi /
 
 namespace tmf
 {
+    /// <summary>
+    /// Added additive synth module. Additive synth is a generator interceptor. 
+    /// It works by "collecting" harmonics from harmonic collectors, adding them 
+    /// together and printing them to the buffer.
+    /// A harmonic collector si a class which prints a set of harmonics to the 
+    /// waveTable (preferebly, it takes in account the contents of the table, printed 
+    /// by other harmonic collectors)
+    /// </summary>
     using namespace std;
     class VoiceInterceptorAdditiveSynth : public tmf::VoiceInterceptorGenerator
     {

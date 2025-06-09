@@ -149,6 +149,23 @@ namespace tmf
             needToOrderCollectors = false;
         }
 
+        /* TODO: Pitch wheel moved
+        int numberOfSemitones = 2;
+        float valuesPerCent = 8192.0f / ((float) numberOfSemitones * 100.0f);
+        newPitchWheelValue -= 8192; //We center the pitchWheelValue
+        float cents = newPitchWheelValue / valuesPerCent;
+        if (newPitchWheelValue > 0)
+        {
+            float hzPerCent = (juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber + 1) - juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber)) / 100.0f;
+            osc.setFrequency (juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber) + hzPerCent * cents);
+        }
+        else
+        {
+            float hzPerCent = (juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber - 1) - juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber)) / 100.0f;
+            osc.setFrequency ((float) juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber) - hzPerCent * cents);
+        }
+        */
+
     private:
         bool collectHarmonics()
         {

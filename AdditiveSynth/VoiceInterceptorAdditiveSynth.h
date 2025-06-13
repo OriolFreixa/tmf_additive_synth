@@ -29,7 +29,7 @@ namespace tmf
     /// by other harmonic collectors)
     /// </summary>
     using namespace std;
-    class VoiceInterceptorAdditiveSynth : public tmf::VoiceInterceptorGenerator
+    class VoiceInterceptorAdditiveSynth : public tmf::VoiceInterceptorGenerator, public VoiceInterceptorWithModTargets
     {
     public:
         VoiceInterceptorAdditiveSynth() : fourierTransform (waveTableOrder), frequency (0.0f), sampleRate (0.0f)
@@ -39,6 +39,7 @@ namespace tmf
             waveTableBuffer.clear();
             needToRefreshWaveTable = true;
             needToOrderCollectors = true;
+            pitchWheelValue = 0;
 
             waveTableVolumeMultipliers = vector<float> (waveTableSize, 1.0f);
 
@@ -60,8 +61,17 @@ namespace tmf
             int currentPitchWheelPosition) override
         {
             jassert (sampleRate != 0.0f);
-            frequency = juce::MidiMessage::getMidiNoteInHertz (midiNoteNumber);
-            phaseIncrement = (juce::MathConstants<float>::twoPi * frequency) / sampleRate;
+            currentNoteNumber = midiNoteNumber;
+
+            if (pitchWheelValue != 0)
+            {
+                this->pitchWheelMoved (pitchWheelValue);
+            }
+            else
+            {
+                frequency = juce::MidiMessage::getMidiNoteInHertz (midiNoteNumber);
+                phaseIncrement = (juce::MathConstants<float>::twoPi * frequency) / sampleRate;
+            }
 
             needToRefreshWaveTable = true;
 
@@ -73,9 +83,31 @@ namespace tmf
 
         void clearCurrentNote() override 
         {
+            currentNoteNumber = -1;
             for (auto& collector : harmonicCollectors)
             {
                 collector->setCurrentNote (-1);
+            }
+        }
+
+        void pitchWheelMoved (int newPitchWheelValue) override
+        {
+            pitchWheelValue = newPitchWheelValue;
+            int numberOfSemitones = 2;
+            float valuesPerCent = 8192.0f / ((float) numberOfSemitones * 100.0f);
+            newPitchWheelValue -= 8192; //We center the pitchWheelValue
+            float cents = newPitchWheelValue / valuesPerCent;
+            if (newPitchWheelValue > 0)
+            {
+                float hzPerCent = (juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber + 1) - juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber)) / 100.0f;
+                frequency = juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber) + hzPerCent * cents;
+                phaseIncrement = (juce::MathConstants<float>::twoPi * frequency) / sampleRate;
+            }
+            else
+            {
+                float hzPerCent = (juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber - 1) - juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber)) / 100.0f;
+                frequency = (float) juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber) - hzPerCent * cents;
+                phaseIncrement = (juce::MathConstants<float>::twoPi * frequency) / sampleRate;
             }
         }
 
@@ -149,22 +181,17 @@ namespace tmf
             needToOrderCollectors = false;
         }
 
-        /* TODO: Pitch wheel moved
-        int numberOfSemitones = 2;
-        float valuesPerCent = 8192.0f / ((float) numberOfSemitones * 100.0f);
-        newPitchWheelValue -= 8192; //We center the pitchWheelValue
-        float cents = newPitchWheelValue / valuesPerCent;
-        if (newPitchWheelValue > 0)
+        void updateModTargetValue (juce::String id, float value) override
         {
-            float hzPerCent = (juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber + 1) - juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber)) / 100.0f;
-            osc.setFrequency (juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber) + hzPerCent * cents);
+            /*if (id == juce::String (VoiceInterceptorGainConstants::gainParameterId))
+            {
+                gainModValue = value;
+                calculateGain();
+            }*/
+
+            // TODO: Launch a sub-method for each collector that returns whether its found the parameter value
+            // Mark WaveTableAsNeedsRefresh();
         }
-        else
-        {
-            float hzPerCent = (juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber - 1) - juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber)) / 100.0f;
-            osc.setFrequency ((float) juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber) - hzPerCent * cents);
-        }
-        */
 
     private:
         bool collectHarmonics()
@@ -229,9 +256,12 @@ namespace tmf
             return sampleValue;
         }
 
+        int currentNoteNumber;
         float phase, phaseIncrement;
         float frequency;
         float sampleRate = 0;
+
+        float pitchWheelValue;
 
         juce::AudioBuffer<float> waveTableBuffer = juce::AudioBuffer<float>(2, waveTableSize);
         FourierTransform fourierTransform;

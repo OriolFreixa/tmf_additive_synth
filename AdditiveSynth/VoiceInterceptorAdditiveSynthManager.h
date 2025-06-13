@@ -17,7 +17,8 @@ namespace tmf
 {
     using namespace std;
     class VoiceInterceptorAdditiveSynthManager : public VoiceInterceptorManager<VoiceInterceptorAdditiveSynth>,
-                                                 public VoiceInterceptorManagerWithParameters
+                                                 public VoiceInterceptorManagerWithParameters,
+                                                 public VoiceInterceptorWithModTargetsManager
     {
     public:
         VoiceInterceptorAdditiveSynthManager (vector<shared_ptr<HarmonicCollectorManagerInterface>> collectors)
@@ -25,7 +26,11 @@ namespace tmf
             for (auto collector : collectors)
             {
                 addCollector (collector);
+                // modTargetData.push_back ({ gainParameterId, "Gain" });
+                // TODO: Add modTargetData for each collector
             }
+
+            modTargetData.push_back ({ "test", "TestREMOVE" });
         }
 
         void addCollector (shared_ptr<HarmonicCollectorManagerInterface> collector)

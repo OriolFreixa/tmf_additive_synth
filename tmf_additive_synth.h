@@ -7,6 +7,7 @@
 #include "AdditiveSynth/VoiceInterceptorAdditiveSynth.h"
 #include "AdditiveSynth/VoiceInterceptorAdditiveSynthManager.h"
 #include "AdditiveSynth/AdditiveSynthHarmonicCollector.h"
+#include "AdditiveSynth/AdditiveSynthHarmonicCollectorManager.h"
 
 // Examples
 #include "AdditiveSynth/CollectorExamples/HarmonicCollectorSine.h"

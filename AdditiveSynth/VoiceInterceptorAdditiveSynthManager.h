@@ -11,7 +11,7 @@
 #pragma once
 #include "tmf_intercept_synth/tmf_intercept_synth.h"
 #include "VoiceInterceptorAdditiveSynth.h"
-#include "AdditiveSynthHarmonicCollector.h"
+#include "AdditiveSynthHarmonicCollectorManager.h"
 
 namespace tmf
 {

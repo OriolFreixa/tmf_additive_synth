@@ -9,7 +9,7 @@
 */
 
 #pragma once
-#include "../AdditiveSynthHarmonicCollector.h"
+#include "../AdditiveSynthHarmonicCollectorManager.h"
 namespace tmf
 {
     static constexpr int maxBoundValue = 9;

@@ -27,6 +27,7 @@ namespace tmf
             {
                 addCollector (collector);
                 auto collectorModTargetData = collector->getModTargetData();
+
                 modTargetData.insert (modTargetData.end(), collectorModTargetData.begin(), collectorModTargetData.end());
             }
         }
@@ -42,6 +43,7 @@ namespace tmf
             {
                 voiceInterceptors[index] = make_shared<VoiceInterceptorAdditiveSynth>();
                 addCollectorsToInterceptor (voiceInterceptors[index], index);
+
             }
             return dynamic_pointer_cast<VoiceInterceptor> (voiceInterceptors[index]);
         }

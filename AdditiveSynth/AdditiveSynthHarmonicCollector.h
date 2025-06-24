@@ -34,6 +34,8 @@ namespace tmf
 
         void setId (string newId) { id = newId; }
 
+        string getId () { return id; }
+
         int getOrder() const { return order; }
 
         /// <summary>
@@ -67,24 +69,31 @@ namespace tmf
 
         virtual void setCurrentNote (int note) { currentNote = note; }
 
-        virtual void updateModTargetValue (juce::String paramid, float value)
+        virtual bool updateModTargetValue (juce::String paramid, float value)
         {
             jassert (id != "");
-            if (paramid == (String) (id + BaseParameterIdSuffixes::level))
+            if (!paramid.startsWith (id))
+            {
+                return false; // Not a parameter of this collector
+            }
+            
+            // Optimized for: if (paramid == (String) (id + BaseParameterIdSuffixes::level))
+            if (paramid.endsWith(BaseParameterIdSuffixes::level))
             {
                 modValues.level = value;
             }
-            else if (paramid == (String) (id + BaseParameterIdSuffixes::order))
+            else if (paramid.endsWith (BaseParameterIdSuffixes::order))
             {
                 modValues.order = juce::jmap(value, 0.f, 1000.f);
             }
-            else if (paramid == (String) (id + BaseParameterIdSuffixes::pan))
+            else if (paramid.endsWith (BaseParameterIdSuffixes::pan))
             {
                 // We want to cover the whole range, so 0 to 100 - (-100)
                 modValues.pan = juce::jmap (value, 0.f, 200.f);
             }
 
             doUpdateParameters();
+            return true;
         }
 
     protected:

@@ -50,24 +50,30 @@ namespace tmf
             doUpdateOctaveParameters();
         }
 
-        void updateModTargetValue (juce::String parameterID, float value) override
+        bool updateModTargetValue (juce::String parameterID, float value) override
         {
             jassert (id != "");
-            if (parameterID == (String) (id + HarmonicCollectorOctavesParameterIdSuffixes::lowBound))
+            if (!parameterID.startsWith (id))
+            {
+                return false; // Not a parameter of this collector
+            }
+
+            // Optimized for: if (parameterID == (String) (id + HarmonicCollectorOctavesParameterIdSuffixes::lowBound))
+            if (parameterID.endsWith(HarmonicCollectorOctavesParameterIdSuffixes::lowBound))
             {
                 modValues.lowBound = juce::jmap (value, 0.f, (float)maxBoundValue);
             }
-            else if (parameterID == (String) (id + HarmonicCollectorOctavesParameterIdSuffixes::highBound))
+            else if (parameterID.endsWith (HarmonicCollectorOctavesParameterIdSuffixes::highBound))
             {
                 modValues.highBound = juce::jmap (value, 0.f, (float) maxBoundValue);
             }
             else 
             {
-                AdditiveSynthHarmonicCollector::updateModTargetValue (parameterID, value);
-                return;
+                return AdditiveSynthHarmonicCollector::updateModTargetValue (parameterID, value);
             }
 
             doUpdateOctaveParameters();
+            return true;
         }
 
     private:

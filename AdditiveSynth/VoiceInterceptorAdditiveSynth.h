@@ -184,9 +184,17 @@ namespace tmf
         void updateModTargetValue (juce::String id, float value) override
         {
             // TODO: Pass a dictionary from VoiceInterceptorAdditiveSynthManager
-            for (auto& collector : harmonicCollectors)
+            auto cachedCollector = modParameterToCollector.find (id);
+            if (cachedCollector != modParameterToCollector.end())
             {
-                collector->updateModTargetValue (id, value);
+                auto collector = cachedCollector->second;
+                
+                auto hit = collector->updateModTargetValue (id, value);
+                jassert (hit);
+            }
+            else
+            {
+                searchCollectorAndUpdateModTargetValue (id, value);
             }
 
             if (id.contains (BaseParameterIdSuffixes::order))
@@ -198,6 +206,17 @@ namespace tmf
         }
 
     private:
+        void searchCollectorAndUpdateModTargetValue (juce::String id, float value)
+        {
+            for (auto& collector : harmonicCollectors)
+            {
+                bool found = collector->updateModTargetValue (id, value);
+                if (found)
+                {
+                    modParameterToCollector[id] = collector;
+                }
+            }
+        }
         bool collectHarmonics()
         {
             waveTableBuffer.clear();
@@ -275,5 +294,6 @@ namespace tmf
 
         vector<shared_ptr<AdditiveSynthHarmonicCollector>> harmonicCollectors;
         vector<float> waveTableVolumeMultipliers;
+        map<juce::String, shared_ptr<AdditiveSynthHarmonicCollector>> modParameterToCollector;
     };
 }

@@ -29,8 +29,11 @@ namespace tmf
     class AdditiveSynthHarmonicCollector
     {
     public:
-        AdditiveSynthHarmonicCollector () = default;
+        AdditiveSynthHarmonicCollector() = default;
+
         virtual ~AdditiveSynthHarmonicCollector() = default;
+
+        void setId (string newId) { id = newId; }
 
         int getOrder() const { return order; }
 
@@ -45,17 +48,8 @@ namespace tmf
 
         void setParams (AdditiveSynthHarmonicCollectorParams params)
         {
-            if (currentNote == -1)
-            {
-                this->level.setCurrentAndTargetValue(params.level);
-                this->pan.setCurrentAndTargetValue(params.pan);
-            }
-            else
-            {
-                this->level.setTargetValue (params.level);
-                this->pan.setTargetValue (params.pan);
-            }
-            this->order = params.order;
+            paramsValues = params;
+            doUpdateParameters();
         }
 
         void prepareToPlay (double sampleRate, int numOutputChannels)
@@ -74,7 +68,46 @@ namespace tmf
 
         virtual void setCurrentNote (int note) { currentNote = note; }
 
+        virtual void updateModTargetValue (juce::String paramid, float value)
+        {
+            jassert (id != "");
+            if (paramid == (String) (id + BaseParameterIdSuffixes::level))
+            {
+                modValues.level = value;
+            }
+            else if (paramid == (String) (id + BaseParameterIdSuffixes::order))
+            {
+                modValues.order = juce::jmap(value, 0.f, 1000.f);
+            }
+            else if (paramid == (String) (id + BaseParameterIdSuffixes::pan))
+            {
+                // We want to cover the whole range, so 0 to 100 - (-100)
+                modValues.pan = juce::jmap (value, 0.f, 200.f);
+            }
+
+            doUpdateParameters();
+        }
+
     protected:
+        void doUpdateParameters()
+        {
+            float limitedLevel = juce::jlimit (0.0f, 1.0f, modValues.level + paramsValues.level);
+            float limitedPan = juce::jlimit (-100.0f, 100.0f, modValues.pan + paramsValues.pan);
+
+            if (currentNote == -1)
+            {
+                this->level.setCurrentAndTargetValue (limitedLevel);
+                this->pan.setCurrentAndTargetValue (limitedPan);
+            }
+            else
+            {
+                this->level.setTargetValue (limitedLevel);
+                this->pan.setTargetValue (limitedPan);
+            }
+
+            float limitedOrder = juce::jlimit (-1, 1000, modValues.order + paramsValues.order);
+            this->order = limitedOrder;
+        }
 
         void applyPanAndGainAndRenderToBuffer(juce::AudioBuffer<float>& audioBlock, std::vector<float> data)
         {
@@ -101,9 +134,14 @@ namespace tmf
         juce::SmoothedValue<float> pan = 0;
         int order = -1;
 
+        AdditiveSynthHarmonicCollectorParams paramsValues;
+        AdditiveSynthHarmonicCollectorParams modValues {0, 0, 0};
+
         float sampleRate = 0;
         int numChannels = 0;
         int currentNote = -1;
+
+        string id = "";
     };
 
     class HarmonicCollectorManagerInterface : public juce::AudioProcessorValueTreeState::Listener
@@ -115,6 +153,7 @@ namespace tmf
         virtual string getId() const = 0;
         virtual unique_ptr<juce::AudioProcessorParameterGroup> getAudioParameters() = 0;
         virtual vector<string> getAudioParametersIds() = 0;
+        virtual vector<ModTargetData> getModTargetData() = 0;
     };
 
     template <class HC>
@@ -156,6 +195,7 @@ namespace tmf
             {
                 harmonicCollectors[index] = make_shared<HC>();
                 harmonicCollectors[index]->setParams (params);
+                harmonicCollectors[index]->setId (getIdStatic());
             }
             return dynamic_pointer_cast<AdditiveSynthHarmonicCollector> (harmonicCollectors[index]);
         }
@@ -207,6 +247,23 @@ namespace tmf
             {
                 collector->setParams(params);
             }
+        }
+
+        virtual vector<ModTargetData> getModTargetData()
+        {
+            auto params = getAudioParameters();
+            vector<ModTargetData> modTargets;
+            for (auto& param : params->getParameters(false))
+            {
+                ModTargetData data;
+                auto paramWithId = static_cast<juce::AudioProcessorParameterWithID*> (param);
+                
+                data.id = paramWithId->paramID;
+                data.name = paramWithId->getName (INT_MAX);
+                modTargets.push_back (data);
+            }
+
+            return modTargets;
         }
 
     protected:

@@ -19,6 +19,12 @@ namespace tmf
         inline static const string highBound = "_HIGHBOUND";
     }
 
+    struct HarmonicCollectorOctavesParams
+    {
+        int lowBound = 1;
+        int highBound = maxBoundValue;
+    };
+
     class HarmonicCollectorOctaves : public AdditiveSynthHarmonicCollector
     {
     public:
@@ -38,13 +44,42 @@ namespace tmf
             this->applyPanAndGainAndRenderToBuffer (audioBuffer, table);
         }
 
-        void setLowAndHighBounds (int lowBound, int highBound)
+        void setParamsValues (HarmonicCollectorOctavesParams pValues)
         {
-            this->lowBound = lowBound;
-            this->highBound = highBound;
+            paramsValues = pValues;
+            doUpdateOctaveParameters();
+        }
+
+        void updateModTargetValue (juce::String parameterID, float value) override
+        {
+            jassert (id != "");
+            if (parameterID == (String) (id + HarmonicCollectorOctavesParameterIdSuffixes::lowBound))
+            {
+                modValues.lowBound = juce::jmap (value, 0.f, (float)maxBoundValue);
+            }
+            else if (parameterID == (String) (id + HarmonicCollectorOctavesParameterIdSuffixes::highBound))
+            {
+                modValues.highBound = juce::jmap (value, 0.f, (float) maxBoundValue);
+            }
+            else 
+            {
+                AdditiveSynthHarmonicCollector::updateModTargetValue (parameterID, value);
+                return;
+            }
+
+            doUpdateOctaveParameters();
         }
 
     private:
+
+        void doUpdateOctaveParameters()
+        {
+            lowBound = juce::jlimit (1, maxBoundValue, modValues.lowBound + paramsValues.lowBound);
+            highBound = juce::jlimit (1, maxBoundValue, modValues.highBound + paramsValues.highBound);
+        }
+
+        HarmonicCollectorOctavesParams paramsValues;
+        HarmonicCollectorOctavesParams modValues = { 0, 0 };
         int lowBound = 1;
         int highBound = maxBoundValue;
     };
@@ -62,7 +97,8 @@ namespace tmf
             {
                 auto newCollector = make_shared<HarmonicCollectorOctaves>();
                 newCollector->setParams (params);
-                newCollector->setLowAndHighBounds (lowBound, highBound);
+                newCollector->setId (getIdStatic());
+                newCollector->setParamsValues (paramsOctaves);
                 harmonicCollectors[index] = newCollector;
             }
             return dynamic_pointer_cast<AdditiveSynthHarmonicCollector> (harmonicCollectors[index]);
@@ -99,20 +135,20 @@ namespace tmf
         {
             if (parameterID == (String) (id + HarmonicCollectorOctavesParameterIdSuffixes::lowBound))
             {
-                lowBound = newValue;
+                paramsOctaves.lowBound = newValue;
 
                 for (auto& collector : harmonicCollectors)
                 {
-                    collector->setLowAndHighBounds (lowBound, highBound);
+                    collector->setParamsValues (paramsOctaves);
                 }
             }
             else if (parameterID == (String) (id + HarmonicCollectorOctavesParameterIdSuffixes::highBound))
             {
-                highBound = newValue;
+                paramsOctaves.highBound = newValue;
 
                 for (auto& collector : harmonicCollectors)
                 {
-                    collector->setLowAndHighBounds (lowBound, highBound);
+                    collector->setParamsValues (paramsOctaves);
                 }
             }
             else
@@ -122,7 +158,6 @@ namespace tmf
         }
 
     private:
-        int lowBound = 1;
-        int highBound = maxBoundValue;
+        HarmonicCollectorOctavesParams paramsOctaves;
     };
 }

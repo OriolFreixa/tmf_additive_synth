@@ -183,14 +183,18 @@ namespace tmf
 
         void updateModTargetValue (juce::String id, float value) override
         {
-            /*if (id == juce::String (VoiceInterceptorGainConstants::gainParameterId))
+            // TODO: Pass a dictionary from VoiceInterceptorAdditiveSynthManager
+            for (auto& collector : harmonicCollectors)
             {
-                gainModValue = value;
-                calculateGain();
-            }*/
+                collector->updateModTargetValue (id, value);
+            }
 
-            // TODO: Launch a sub-method for each collector that returns whether its found the parameter value
-            // Mark WaveTableAsNeedsRefresh();
+            if (id.contains (BaseParameterIdSuffixes::order))
+            {
+                markCollectorsAsNeedOrder();
+            }
+
+            markWavetableAsNeedsRefresh();
         }
 
     private:

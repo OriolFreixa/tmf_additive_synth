@@ -26,16 +26,9 @@ namespace tmf
             for (auto collector : collectors)
             {
                 addCollector (collector);
-                // modTargetData.push_back ({ gainParameterId, "Gain" });
-                // TODO: Add modTargetData for each collector
+                auto collectorModTargetData = collector->getModTargetData();
+                modTargetData.insert (modTargetData.end(), collectorModTargetData.begin(), collectorModTargetData.end());
             }
-
-            modTargetData.push_back ({ "test", "TestREMOVE" });
-        }
-
-        void addCollector (shared_ptr<HarmonicCollectorManagerInterface> collector)
-        {
-            harmonicCollectorManagers.push_back (collector);
         }
 
         virtual shared_ptr<VoiceInterceptor> getOrCreateVoiceInterceptor (int index) override
@@ -105,6 +98,12 @@ namespace tmf
         }
 
     private:
+
+        void addCollector (shared_ptr<HarmonicCollectorManagerInterface> collector)
+        {
+            harmonicCollectorManagers.push_back (collector);
+        }
+
         void addCollectorsToInterceptor (shared_ptr<VoiceInterceptorAdditiveSynth> interceptor, int index)
         {
             for (auto collectorManager : harmonicCollectorManagers)

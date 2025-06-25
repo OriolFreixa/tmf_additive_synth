@@ -183,7 +183,6 @@ namespace tmf
 
         void updateModTargetValue (juce::String id, float value) override
         {
-            // TODO: Pass a dictionary from VoiceInterceptorAdditiveSynthManager
             auto cachedCollector = modParameterToCollector.find (id);
             if (cachedCollector != modParameterToCollector.end())
             {

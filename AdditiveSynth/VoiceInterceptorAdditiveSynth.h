@@ -239,7 +239,6 @@ namespace tmf
 
 
             return keepRefreshing;
-            // TODO: Remove harms highter than nyquist frequency
         }
 
         void generateWaveTable()

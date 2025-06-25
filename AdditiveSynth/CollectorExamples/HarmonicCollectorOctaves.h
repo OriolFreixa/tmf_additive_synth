@@ -61,11 +61,11 @@ namespace tmf
             // Optimized for: if (parameterID == (String) (id + HarmonicCollectorOctavesParameterIdSuffixes::lowBound))
             if (parameterID.endsWith(HarmonicCollectorOctavesParameterIdSuffixes::lowBound))
             {
-                modValues.lowBound = juce::jmap (value, 0.f, (float)maxBoundValue);
+                modValues.lowBound = juce::jmap (value, -1.f, 1.f, (float) -maxBoundValue, (float) maxBoundValue);
             }
             else if (parameterID.endsWith (HarmonicCollectorOctavesParameterIdSuffixes::highBound))
             {
-                modValues.highBound = juce::jmap (value, 0.f, (float) maxBoundValue);
+                modValues.highBound = juce::jmap (value, -1.f, 1.f, (float) -maxBoundValue, (float) maxBoundValue);
             }
             else 
             {

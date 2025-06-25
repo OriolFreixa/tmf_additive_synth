@@ -84,12 +84,13 @@ namespace tmf
             }
             else if (paramid.endsWith (BaseParameterIdSuffixes::order))
             {
-                modValues.order = juce::jmap(value, 0.f, 1000.f);
+                // We want to cover the whole range, so -(1000 - (-1)) to 1000 - (-1)
+                modValues.order = juce::jmap (value, -1.f, 1.f, -1001.f, 1001.f);
             }
             else if (paramid.endsWith (BaseParameterIdSuffixes::pan))
             {
-                // We want to cover the whole range, so 0 to 100 - (-100)
-                modValues.pan = juce::jmap (value, 0.f, 200.f);
+                // We want to cover the whole range, so -(100 - (-100)) to 100 - (-100)
+                modValues.pan = juce::jmap (value, -1.f, 1.f, -200.f, 200.f);
             }
 
             doUpdateParameters();

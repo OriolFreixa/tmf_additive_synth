@@ -51,7 +51,7 @@ namespace tmf
             return id;
         }
 
-        int getOrder() { return params->order; }
+        int getOrder() { return params.order; }
 
         virtual shared_ptr<AdditiveSynthHarmonicCollector> getOrCreateHarmonicCollector (int index) override
         {

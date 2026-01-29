@@ -10,7 +10,7 @@
 
 #pragma once
 
-#if _WIN32
+#if defined(_WIN32) || defined(__linux__)
 #if __has_include(<ipp/ipps.h>) && __has_include(<stdint.h>)
     #include <ipp/ipps.h>
 #endif

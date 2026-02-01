@@ -9,13 +9,15 @@
 */
 
 #pragma once
+#include "juce_audio_basics/juce_audio_basics.h"
+#include <string>
 namespace tmf
 {
     namespace BaseParameterIdSuffixes
     {
-        inline static const string level = "_LEVEL";
-        inline static const string order = "_ORDER";
-        inline static const string pan = "_PAN";
+        inline static const std::string level = "_LEVEL";
+        inline static const std::string order = "_ORDER";
+        inline static const std::string pan = "_PAN";
     };
 
     struct AdditiveSynthHarmonicCollectorParams
@@ -32,9 +34,9 @@ namespace tmf
 
         virtual ~AdditiveSynthHarmonicCollector() = default;
 
-        void setId (string newId) { id = newId; }
+        void setId (std::string newId) { id = newId; }
 
-        string getId () { return id; }
+        std::string getId() { return id; }
 
         int getOrder() const { return order; }
 
@@ -43,7 +45,7 @@ namespace tmf
         /// </summary>
         /// <param name="audioBuffer">Input/output audio buffer. Content in the frequency domain in packed format. Info: https://www.intel.com/content/www/us/en/docs/ipp/developer-guide-reference/2022-0/packed-formats.html</param>
         /// <param name="dataSize">Length of the audioBuffer</param>
-        virtual void collectHarmonics (juce::AudioBuffer<float>& audioBuffer, int dataSize) = 0;
+        virtual void collectHarmonics (juce::AudioBuffer<float>& audioBuffer, size_t dataSize) = 0;
 
         virtual bool waveTableRefreshNeeded() const { return level.isSmoothing() || pan.isSmoothing(); }
 
@@ -53,12 +55,12 @@ namespace tmf
             doUpdateParameters();
         }
 
-        void prepareToPlay (double sampleRate, int numOutputChannels)
+        void prepareToPlay (double sampleRate_, int numOutputChannels)
         {
-            this->sampleRate = sampleRate;
+            this->sampleRate = sampleRate_;
             this->numChannels = numOutputChannels;
-            level.reset(sampleRate, 0.01);
-            pan.reset(sampleRate, 0.01);
+            level.reset (sampleRate, 0.01);
+            pan.reset (sampleRate, 0.01);
         }
 
         void advanceSamples (int numSamples)
@@ -76,9 +78,9 @@ namespace tmf
             {
                 return false; // Not a parameter of this collector
             }
-            
+
             // Optimized for: if (paramid == (String) (id + BaseParameterIdSuffixes::level))
-            if (paramid.endsWith(BaseParameterIdSuffixes::level))
+            if (paramid.endsWith (BaseParameterIdSuffixes::level))
             {
                 modValues.level = value;
             }
@@ -118,11 +120,11 @@ namespace tmf
             this->order = limitedOrder;
         }
 
-        void applyPanAndGainAndRenderToBuffer(juce::AudioBuffer<float>& audioBlock, std::vector<float> data)
+        void applyPanAndGainAndRenderToBuffer (juce::AudioBuffer<float>& audioBlock, std::vector<float> data)
         {
             jassert (audioBlock.getNumChannels() == 2);
 
-            int tableSize = data.size();
+            size_t tableSize = data.size();
             juce::FloatVectorOperations::multiply (data.data(), level.getCurrentValue(), tableSize);
 
             // From [-100, 100] to [0, 1]
@@ -144,12 +146,12 @@ namespace tmf
         int order = -1;
 
         AdditiveSynthHarmonicCollectorParams paramsValues;
-        AdditiveSynthHarmonicCollectorParams modValues {0, 0, 0};
+        AdditiveSynthHarmonicCollectorParams modValues { 0, 0, 0 };
 
         float sampleRate = 0;
         int numChannels = 0;
         int currentNote = -1;
 
-        string id = "";
+        std::string id = "";
     };
 }

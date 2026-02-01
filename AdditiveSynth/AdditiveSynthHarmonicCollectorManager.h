@@ -8,8 +8,11 @@
   ==============================================================================
 */
 #pragma once
-
 #include "AdditiveSynthHarmonicCollector.h"
+#include "tmf_intercept_synth/synth/Interceptors/VoiceInterceptorWithModTargets.h"
+#include <juce_audio_processors/juce_audio_processors.h>
+#include <string>
+
 namespace tmf
 {
     class HarmonicCollectorManagerInterface : public juce::AudioProcessorValueTreeState::Listener
@@ -17,10 +20,10 @@ namespace tmf
     public:
         HarmonicCollectorManagerInterface() = default;
         virtual ~HarmonicCollectorManagerInterface() = default;
-        virtual shared_ptr<AdditiveSynthHarmonicCollector> getOrCreateHarmonicCollector (int index) = 0;
-        virtual string getId() const = 0;
-        virtual unique_ptr<juce::AudioProcessorParameterGroup> getAudioParameters() = 0;
-        virtual vector<string> getAudioParametersIds() = 0;
+        virtual std::shared_ptr<AdditiveSynthHarmonicCollector> getOrCreateHarmonicCollector (size_t index) = 0;
+        virtual std::string getId() const = 0;
+        virtual std::unique_ptr<juce::AudioProcessorParameterGroup> getAudioParameters() = 0;
+        virtual std::vector<std::string> getAudioParametersIds() = 0;
         virtual vector<ModTargetData> getModTargetData() = 0;
     };
 
@@ -30,30 +33,19 @@ namespace tmf
         static_assert (std::is_base_of<AdditiveSynthHarmonicCollector, HC>::value, "VI must inherit AdditiveSynthHarmonicCollector");
 
     public:
-        HarmonicCollectorManager() = default;
-        string getId() const override
+        HarmonicCollectorManager()
         {
-            return getIdStatic();
+            uniqueId = getTypeIdStatic() + std::to_string (uniqueIdCount);
         }
 
-        static string getIdStatic()
+        string getId() const override
         {
-            if (id.empty())
-            {
-                juce::String className = typeid (HC).name();
-                className = className.replace ("class", "")
-                                .replace ("tmf::", "")
-                                .replace ("HarmonicCollector", "")
-                                .replace (" ", "");
-                id = className.toStdString();
-            }
-
-            return id;
+            return uniqueId;
         }
 
         int getOrder() { return params.order; }
 
-        virtual shared_ptr<AdditiveSynthHarmonicCollector> getOrCreateHarmonicCollector (int index) override
+        virtual shared_ptr<AdditiveSynthHarmonicCollector> getOrCreateHarmonicCollector (size_t index) override
         {
             if (index >= harmonicCollectors.size())
             {
@@ -63,12 +55,12 @@ namespace tmf
             {
                 harmonicCollectors[index] = make_shared<HC>();
                 harmonicCollectors[index]->setParams (params);
-                harmonicCollectors[index]->setId (getIdStatic());
+                harmonicCollectors[index]->setId (uniqueId);
             }
             return dynamic_pointer_cast<AdditiveSynthHarmonicCollector> (harmonicCollectors[index]);
         }
 
-        virtual unique_ptr<juce::AudioProcessorParameterGroup> getAudioParameters()
+        virtual unique_ptr<juce::AudioProcessorParameterGroup> getAudioParameters() override
         {
             auto id = getId();
             auto result = make_unique<juce::AudioProcessorParameterGroup> (id, id, "_");
@@ -81,33 +73,38 @@ namespace tmf
             return std::move (result);
         };
 
-        virtual vector<string> getAudioParametersIds()
-        {
-            return getAudioParametersIdsStatic();
-        }
-
-        static vector<string> getAudioParametersIdsStatic()
+        virtual vector<string> getAudioParametersIds() override
         {
             vector<string> ids;
-            auto id = getIdStatic();
-            ids.push_back (id + BaseParameterIdSuffixes::level);
-            ids.push_back (id + BaseParameterIdSuffixes::order);
-            ids.push_back (id + BaseParameterIdSuffixes::pan);
+            ids.push_back (uniqueId + BaseParameterIdSuffixes::level);
+            ids.push_back (uniqueId + BaseParameterIdSuffixes::order);
+            ids.push_back (uniqueId + BaseParameterIdSuffixes::pan);
 
             return ids;
         }
 
-        virtual void parameterChanged (const juce::String& parameterID, float newValue)
+        static vector<string> getAudioParametersIdsStatic (int instanceNumber)
         {
-            if (parameterID == (String) (id + BaseParameterIdSuffixes::level))
+            vector<string> ids;
+            auto instanceUniqueId = getTypeIdStatic() + std::to_string (instanceNumber);
+            ids.push_back (instanceUniqueId + BaseParameterIdSuffixes::level);
+            ids.push_back (instanceUniqueId + BaseParameterIdSuffixes::order);
+            ids.push_back (instanceUniqueId + BaseParameterIdSuffixes::pan);
+
+            return ids;
+        }
+
+        virtual void parameterChanged (const juce::String& parameterID, float newValue) override
+        {
+            if (parameterID == (String) (uniqueId + BaseParameterIdSuffixes::level))
             {
                 params.level = newValue;
             }
-            else if (parameterID == (String) (id + BaseParameterIdSuffixes::order))
+            else if (parameterID == (String) (uniqueId + BaseParameterIdSuffixes::order))
             {
                 params.order = newValue;
             }
-            else if (parameterID == (String) (id + BaseParameterIdSuffixes::pan))
+            else if (parameterID == (String) (uniqueId + BaseParameterIdSuffixes::pan))
             {
                 params.pan = newValue;
             }
@@ -118,11 +115,11 @@ namespace tmf
             }
         }
 
-        virtual vector<ModTargetData> getModTargetData()
+        virtual vector<ModTargetData> getModTargetData() override
         {
-            auto params = getAudioParameters();
+            auto audioParams = getAudioParameters();
             vector<ModTargetData> modTargets;
-            for (auto& param : params->getParameters (false))
+            for (auto& param : audioParams->getParameters (false))
             {
                 ModTargetData data;
                 auto paramWithId = static_cast<juce::AudioProcessorParameterWithID*> (param);
@@ -136,9 +133,28 @@ namespace tmf
         }
 
     protected:
-        inline static string id = "";
         vector<shared_ptr<HC>> harmonicCollectors;
         AdditiveSynthHarmonicCollectorParams params;
         int currentNote = -1;
+
+        static string getTypeIdStatic()
+        {
+            if (typeId.empty())
+            {
+                juce::String className = typeid (HC).name();
+                className = className.replace ("class", "")
+                                .replace ("tmf::", "")
+                                .replace ("HarmonicCollector", "")
+                                .replace (" ", "");
+                typeId = className.toStdString();
+            }
+
+            return typeId;
+        }
+
+    private:
+        string uniqueId;
+        inline static int uniqueIdCount = 0;
+        inline static string typeId = "";
     };
 }

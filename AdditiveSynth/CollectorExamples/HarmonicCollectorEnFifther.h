@@ -15,20 +15,20 @@ namespace tmf
     class HarmonicCollectorEnFifther : public AdditiveSynthHarmonicCollector
     {
     public:
-        void collectHarmonics (juce::AudioBuffer<float>& audioBuffer, int tableSize) override
+        void collectHarmonics (juce::AudioBuffer<float>& audioBuffer, size_t tableSize) override
         {
             jassert (sampleRate > 0);
             jassert (numChannels > 0);
 
             int numChannels = audioBuffer.getNumChannels();
-            std::vector<float> table = std::vector<float>(tableSize, 0);
+            std::vector<float> table = std::vector<float> (tableSize, 0);
             bool overFlowed = false;
             for (int i = 2; !overFlowed; i += 2)
             {
                 float power = 0;
                 for (int j = 0; j < numChannels; j++)
                 {
-                    // Nearest fifthHarmonicDirectionUp = i + 
+                    // Nearest fifthHarmonicDirectionUp = i +
                     power += audioBuffer.getReadPointer (j)[i];
                 }
 
@@ -51,7 +51,7 @@ namespace tmf
                     int ascendingFifthPackedFormat = ascendingFifth * 2;
                     if (ascendingFifthPackedFormat < tableSize)
                     {
-                        table[ascendingFifthPackedFormat] = power / (float)numChannels;
+                        table[ascendingFifthPackedFormat] = power / (float) numChannels;
                     }
                     else
                     {

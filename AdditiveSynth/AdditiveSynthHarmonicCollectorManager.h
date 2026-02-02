@@ -36,6 +36,7 @@ namespace tmf
         HarmonicCollectorManager()
         {
             uniqueId = getTypeIdStatic() + std::to_string (uniqueIdCount);
+            uniqueIdCount++;
         }
 
         string getId() const override

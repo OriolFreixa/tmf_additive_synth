@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include <algorithm>
+
 #if defined(_WIN32) || defined(__linux__)
 #if __has_include(<ipp/ipps.h>) && __has_include(<stdint.h>)
     #include <ipp/ipps.h>
@@ -63,45 +65,53 @@ private:
 
 class FourierTransform {
 public:
-    FourierTransform(vDSP_Length bits) : setup_(vDSP_create_fftsetup(bits, 2)), bits_(bits), size_(1 << bits)
+    FourierTransform(vDSP_Length bits)
+        : setup_(vDSP_create_fftsetup(bits, 2)),
+          bits_(bits),
+          size_(1 << bits),
+          scratch_(std::make_unique<float[]>(size_))
     {
     }
-    
-    FourierTransform(FourierTransform&& fft) : setup_(vDSP_create_fftsetup(fft.bits_, 2)), bits_(fft.bits_), size_(fft.size_)
+
+    FourierTransform(FourierTransform&& fft)
+        : setup_(vDSP_create_fftsetup(fft.bits_, 2)),
+          bits_(fft.bits_),
+          size_(fft.size_),
+          scratch_(std::make_unique<float[]>(size_))
     {
     }
-    
-    
+
     ~FourierTransform() {
         vDSP_destroy_fftsetup(setup_);
     }
 
     void transformRealForward(float* data) {
         static const float kMult = 0.5f;
-        data[size_] = 0.0f;
-        DSPSplitComplex split = { data, data + 1 };
-        vDSP_fft_zrip(setup_, &split, 2, bits_, kFFTDirection_Forward);
-        vDSP_vsmul(data, 1, &kMult, data, 1, size_);
+        std::copy_n(data, static_cast<size_t> (size_), scratch_.get());
 
-        data[size_] = data[1];
-        data[size_ + 1] = 0.0f;
-        data[1] = 0.0f;
-      }
+        DSPSplitComplex split = { scratch_.get(), scratch_.get() + 1 };
+        vDSP_fft_zrip(setup_, &split, 2, bits_, kFFTDirection_Forward);
+        vDSP_vsmul(scratch_.get(), 1, &kMult, scratch_.get(), 1, size_);
+
+        scratch_[1] = 0.0f;
+        std::copy_n(scratch_.get(), static_cast<size_t> (size_), data);
+    }
 
     void transformRealInverse(float* data) {
-        float multiplier = 1.0f / size_;
-        DSPSplitComplex split = { data, data + 1 };
-        data[1] = data[size_];
+        std::copy_n(data, static_cast<size_t> (size_), scratch_.get());
+        scratch_[1] = 0.0f;
 
+        DSPSplitComplex split = { scratch_.get(), scratch_.get() + 1 };
         vDSP_fft_zrip(setup_, &split, 2, bits_, kFFTDirection_Inverse);
-        vDSP_vsmul(data, 1, &multiplier, data, 1, size_ * 2);
-        memset(data + size_, 0, size_ * sizeof(float));
+
+        std::copy_n(scratch_.get(), static_cast<size_t> (size_), data);
     }
 
 private:
     FFTSetup setup_;
     vDSP_Length bits_;
     vDSP_Length size_;
+    std::unique_ptr<float[]> scratch_;
 
     JUCE_LEAK_DETECTOR(FourierTransform)
   };

@@ -122,9 +122,11 @@ namespace tmf
 
         void applyPanAndGainAndRenderToBuffer (juce::AudioBuffer<float>& audioBlock, std::vector<float> data)
         {
-            jassert (audioBlock.getNumChannels() == 2);
+            jassert (audioBlock.getNumChannels() >= 2);
 
             size_t tableSize = data.size();
+            jassert (tableSize <= static_cast<size_t> (audioBlock.getNumSamples()));
+
             juce::FloatVectorOperations::multiply (data.data(), level.getCurrentValue(), tableSize);
 
             // From [-100, 100] to [0, 1]

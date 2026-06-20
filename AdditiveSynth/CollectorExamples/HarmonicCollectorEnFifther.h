@@ -22,8 +22,8 @@ namespace tmf
 
             int numChannels = audioBuffer.getNumChannels();
             std::vector<float> table = std::vector<float> (tableSize, 0);
-            bool overFlowed = false;
-            for (int i = 2; !overFlowed; i += 2)
+            auto tableSizeAsInt = static_cast<int> (tableSize);
+            for (int i = 2; i < tableSizeAsInt; i += 2)
             {
                 float power = 0;
                 for (int j = 0; j < numChannels; j++)
@@ -49,13 +49,9 @@ namespace tmf
                     }
 
                     int ascendingFifthPackedFormat = ascendingFifth * 2;
-                    if (ascendingFifthPackedFormat < tableSize)
+                    if (ascendingFifthPackedFormat < tableSizeAsInt)
                     {
-                        table[ascendingFifthPackedFormat] = power / (float) numChannels;
-                    }
-                    else
-                    {
-                        overFlowed = true;
+                        table[static_cast<size_t> (ascendingFifthPackedFormat)] = power / (float) numChannels;
                     }
                 }
             }

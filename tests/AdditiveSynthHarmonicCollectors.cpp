@@ -1,0 +1,124 @@
+#include "tmf_additive_synth/AdditiveSynth/CollectorExamples/HarmonicCollectorEnFifther.h"
+#include "tmf_additive_synth/AdditiveSynth/CollectorExamples/HarmonicCollectorSine.h"
+#include "tmf_additive_synth/FFT.h"
+#include "tmf_additive_synth/tmf_additive_synth.h"
+
+#include <catch2/catch_approx.hpp>
+#include <catch2/catch_test_macros.hpp>
+
+#include <algorithm>
+#include <array>
+#include <cmath>
+
+TEST_CASE ("Harmonic collectors tolerate tables without first harmonic storage", "[tmf_additive_synth][collector]")
+{
+    juce::AudioBuffer<float> buffer { 2, 2 };
+    buffer.clear();
+
+    tmf::HarmonicCollectorSine sine;
+    sine.prepareToPlay (44100.0, buffer.getNumChannels());
+    sine.collectHarmonics (buffer, 2);
+
+    tmf::HarmonicCollectorEnFifther enFifther;
+    enFifther.prepareToPlay (44100.0, buffer.getNumChannels());
+    enFifther.collectHarmonics (buffer, 2);
+
+    CHECK (buffer.getSample (0, 0) == 0.0f);
+    CHECK (buffer.getSample (0, 1) == 0.0f);
+    CHECK (buffer.getSample (1, 0) == 0.0f);
+    CHECK (buffer.getSample (1, 1) == 0.0f);
+}
+
+TEST_CASE ("Fourier transform inverse keeps caller buffer bounds", "[tmf_additive_synth][fft]")
+{
+    constexpr int fftOrder = 3;
+    constexpr int fftSize = 1 << fftOrder;
+    constexpr int guardSize = 4;
+    constexpr int sentinel = 1234;
+
+    std::array<float, fftSize + guardSize> data {};
+    data[2] = 1.0f;
+
+    for (int i = fftSize; i < fftSize + guardSize; ++i)
+        data[static_cast<size_t> (i)] = static_cast<float> (sentinel);
+
+    FourierTransform fft { fftOrder };
+    fft.transformRealInverse (data.data());
+
+    for (int i = fftSize; i < fftSize + guardSize; ++i)
+        CHECK (static_cast<int> (data[static_cast<size_t> (i)]) == sentinel);
+}
+
+TEST_CASE ("Fourier transform inverse keeps harmonic amplitude audible", "[tmf_additive_synth][fft]")
+{
+    constexpr int fftOrder = 11;
+    constexpr int fftSize = 1 << fftOrder;
+
+    std::array<float, fftSize> data {};
+    data[2] = 1.0f;
+
+    FourierTransform fft { fftOrder };
+    fft.transformRealInverse (data.data());
+
+    const auto max = *std::max_element (data.begin(), data.end());
+    const auto min = *std::min_element (data.begin(), data.end());
+
+    CHECK (max > 0.5f);
+    CHECK (min < -0.5f);
+}
+
+TEST_CASE ("Harmonic collector manager exposes parameter ids and mod targets", "[tmf_additive_synth][manager]")
+{
+    tmf::HarmonicCollectorManager<tmf::HarmonicCollectorSine> manager;
+
+    const auto ids = manager.getAudioParametersIds();
+    REQUIRE (ids.size() == 3);
+
+    CHECK (ids[0].ends_with (tmf::BaseParameterIdSuffixes::level));
+    CHECK (ids[1].ends_with (tmf::BaseParameterIdSuffixes::order));
+    CHECK (ids[2].ends_with (tmf::BaseParameterIdSuffixes::pan));
+
+    const auto modTargets = manager.getModTargetData();
+    REQUIRE (modTargets.size() == ids.size());
+
+    for (size_t i = 0; i < ids.size(); ++i)
+        CHECK (modTargets[i].id.toStdString() == ids[i]);
+}
+
+TEST_CASE ("Harmonic collector manager applies parameter changes to active collectors", "[tmf_additive_synth][manager]")
+{
+    tmf::HarmonicCollectorManager<tmf::HarmonicCollectorSine> manager;
+    auto collector = manager.getOrCreateHarmonicCollector (0);
+    REQUIRE (collector != nullptr);
+
+    const auto ids = manager.getAudioParametersIds();
+    manager.parameterChanged (juce::String { ids[1] }, 7.0f);
+
+    CHECK (manager.getOrder() == 7);
+    CHECK (collector->getOrder() == 7);
+}
+
+TEST_CASE ("Additive synth manager renders a configured harmonic collector", "[tmf_additive_synth][voice]")
+{
+    auto collectorManager = std::make_shared<tmf::HarmonicCollectorManager<tmf::HarmonicCollectorSine>>();
+    const auto ids = collectorManager->getAudioParametersIds();
+    collectorManager->parameterChanged (juce::String { ids[0] }, 1.0f);
+    collectorManager->parameterChanged (juce::String { ids[1] }, 1.0f);
+
+    tmf::VoiceInterceptorAdditiveSynthManager manager { { collectorManager } };
+    auto voice = std::dynamic_pointer_cast<tmf::VoiceInterceptorAdditiveSynth> (manager.getOrCreateVoiceInterceptor (0));
+    REQUIRE (voice != nullptr);
+
+    voice->prepareToPlay (44100.0, 128, 2);
+    voice->startNote (60, 1.0f, 8192);
+
+    juce::AudioBuffer<float> buffer { 2, 128 };
+    buffer.clear();
+    voice->processBlock (buffer, 0, buffer.getNumSamples());
+
+    auto peak = 0.0f;
+    for (auto channel = 0; channel < buffer.getNumChannels(); ++channel)
+        peak = std::max (peak, buffer.getMagnitude (channel, 0, buffer.getNumSamples()));
+
+    CHECK (peak > 0.01f);
+}

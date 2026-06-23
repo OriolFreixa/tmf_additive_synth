@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BUILD_TYPE: Debug
+
+jobs:
+  test:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-22.04
+          - macos-14
+          - windows-latest
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Checkout tmf_intercept_synth
+        uses: actions/checkout@v4
+        with:
+          repository: OriolFreixa/tmf_intercept_synth
+          path: tmf_intercept_synth
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ninja-build \
+            libasound2-dev \
+            libx11-dev \
+            libxinerama-dev \
+            libxext-dev \
+            libfreetype6-dev \
+            libwebkit2gtk-4.0-dev \
+            libglu1-mesa-dev
+
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: brew install ninja
+
+      - name: Install Windows dependencies
+        if: runner.os == 'Windows'
+        run: choco install ninja --no-progress -y
+
+      - name: Configure MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+          -DTMF_ADDITIVE_SYNTH_INTERCEPT_SYNTH_PATH="${{ github.workspace }}/tmf_intercept_synth"
+
+      - name: Build
+        run: cmake --build build --config ${{ env.BUILD_TYPE }} --parallel 4
+
+      - name: Test
+        run: ctest --test-dir build --build-config ${{ env.BUILD_TYPE }} --output-on-failure

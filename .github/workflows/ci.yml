@@ -41,6 +41,8 @@ jobs:
         with:
           repository: OriolFreixa/tmf_intercept_synth
           path: tmf_intercept_synth
+          token: ${{ secrets.TMF_INTERCEPT_SYNTH_TOKEN || github.token }}
+          persist-credentials: false
 
       - name: Install Linux dependencies
         if: runner.os == 'Linux'

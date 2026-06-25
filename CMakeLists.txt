@@ -9,8 +9,10 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED YES)
 
 option(TMF_ADDITIVE_SYNTH_BUILD_TESTS "Build tmf_additive_synth tests" ${PROJECT_IS_TOP_LEVEL})
+option(TMF_ADDITIVE_SYNTH_USE_IPP "Use Intel IPP for FFT support when available" ON)
 set(TMF_ADDITIVE_SYNTH_JUCE_PATH "" CACHE PATH "Optional path to a JUCE checkout for standalone builds")
 set(TMF_ADDITIVE_SYNTH_INTERCEPT_SYNTH_PATH "" CACHE PATH "Optional path to tmf_intercept_synth for standalone builds")
+set(TMF_ADDITIVE_SYNTH_IPP_ROOT "" CACHE PATH "Optional path to an Intel IPP installation")
 
 if(PROJECT_IS_TOP_LEVEL)
     include(FetchContent)
@@ -40,6 +42,94 @@ endif()
 
 juce_add_module("${CMAKE_CURRENT_LIST_DIR}")
 add_library(tmf::additive_synth ALIAS tmf_additive_synth)
+
+function(tmf_additive_synth_configure_ipp target)
+    if(NOT TMF_ADDITIVE_SYNTH_USE_IPP OR APPLE)
+        return()
+    endif()
+
+    set(ipp_root_candidates)
+    if(TMF_ADDITIVE_SYNTH_IPP_ROOT)
+        list(APPEND ipp_root_candidates "${TMF_ADDITIVE_SYNTH_IPP_ROOT}")
+    endif()
+
+    if(DEFINED ENV{IPP_DIR})
+        get_filename_component(ipp_root_from_dir "$ENV{IPP_DIR}/../../.." ABSOLUTE)
+        list(APPEND ipp_root_candidates "${ipp_root_from_dir}")
+    endif()
+
+    if(WIN32)
+        list(APPEND ipp_root_candidates
+            "$ENV{USERPROFILE}/.nuget/packages/intelipp.static.win-x64/2022.3.0.387"
+            "$ENV{IPP_ROOT}"
+            "$ENV{IPPROOT}"
+            "C:/Program Files (x86)/Intel/oneAPI/ipp/latest")
+    elseif(UNIX)
+        list(APPEND ipp_root_candidates
+            "$ENV{IPP_ROOT}"
+            "$ENV{IPPROOT}"
+            "/opt/intel/oneapi/ipp/latest")
+    endif()
+
+    foreach(candidate IN LISTS ipp_root_candidates)
+        if(candidate AND IS_DIRECTORY "${candidate}")
+            set(ipp_root "${candidate}")
+            break()
+        endif()
+    endforeach()
+
+    if(NOT ipp_root)
+        message(STATUS "Intel IPP not found; tmf_additive_synth will use its portable FFT fallback")
+        return()
+    endif()
+
+    if(EXISTS "${ipp_root}/build/native/include/ipp/ipps.h")
+        set(ipp_include "${ipp_root}/build/native/include")
+        set(ipp_library_dir "${ipp_root}/build/native/win-x64")
+    elseif(EXISTS "${ipp_root}/include/ipps.h")
+        set(ipp_include "${ipp_root}/include")
+        if(WIN32)
+            foreach(candidate
+                    "${ipp_root}/lib/intel64"
+                    "${ipp_root}/lib/intel64_win"
+                    "${ipp_root}/lib")
+                if(IS_DIRECTORY "${candidate}")
+                    set(ipp_library_dir "${candidate}")
+                    break()
+                endif()
+            endforeach()
+        else()
+            foreach(candidate
+                    "${ipp_root}/lib/intel64"
+                    "${ipp_root}/lib")
+                if(IS_DIRECTORY "${candidate}")
+                    set(ipp_library_dir "${candidate}")
+                    break()
+                endif()
+            endforeach()
+        endif()
+    endif()
+
+    if(NOT ipp_include OR NOT ipp_library_dir)
+        message(STATUS "Intel IPP not found at ${ipp_root}; tmf_additive_synth will use its portable FFT fallback")
+        return()
+    endif()
+
+    find_library(ipp_signal_library NAMES ippsmt ipps PATHS "${ipp_library_dir}" NO_DEFAULT_PATH)
+    find_library(ipp_core_library NAMES ippcoremt ippcore PATHS "${ipp_library_dir}" NO_DEFAULT_PATH)
+
+    if(NOT ipp_signal_library OR NOT ipp_core_library)
+        message(STATUS "Intel IPP libraries not found at ${ipp_library_dir}; tmf_additive_synth will use its portable FFT fallback")
+        return()
+    endif()
+
+    message(STATUS "Intel IPP found for tmf_additive_synth at ${ipp_root}")
+    target_include_directories(${target} INTERFACE "${ipp_include}")
+    target_link_libraries(${target} INTERFACE "${ipp_signal_library}" "${ipp_core_library}")
+    target_compile_definitions(${target} INTERFACE TMF_ADDITIVE_SYNTH_HAS_IPP=1)
+endfunction()
+
+tmf_additive_synth_configure_ipp(tmf_additive_synth)
 
 file(GLOB_RECURSE TMF_ADDITIVE_SYNTH_TEST_SOURCE_FILES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_LIST_DIR}/tests/*.cpp")

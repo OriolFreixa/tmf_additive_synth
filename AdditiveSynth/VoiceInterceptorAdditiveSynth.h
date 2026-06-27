@@ -32,35 +32,40 @@ namespace tmf
     class VoiceInterceptorAdditiveSynth : public tmf::VoiceInterceptorGenerator, public VoiceInterceptorWithModTargets
     {
     public:
-        VoiceInterceptorAdditiveSynth() : fourierTransform (waveTableOrder), frequency (0.0f), sampleRate (0.0f)
+        VoiceInterceptorAdditiveSynth()
+            : currentNoteNumber (-1),
+              phase (0.0f),
+              phaseIncrement (0.0f),
+              frequency (0.0f),
+              sampleRate (0.0f),
+              pitchWheelValue (0.0f),
+              waveTableBuffer (2, waveTableSize),
+              fourierTransform (waveTableOrder),
+              needToRefreshWaveTable (true),
+              needToOrderCollectors (true)
         {
-            phase = 0.0f;
-            phaseIncrement = 0.0f;
             waveTableBuffer.clear();
-            needToRefreshWaveTable = true;
-            needToOrderCollectors = true;
-            pitchWheelValue = 0;
 
             waveTableVolumeMultipliers = vector<float> (waveTableSize, 1.0f);
 
             // We start at the first partial, and skip the phase indexs (odd)
             for (int i = 2; i < waveTableSize; i += 2)
             {
-                waveTableVolumeMultipliers[i] = 1.0f / (i / 2);
+                waveTableVolumeMultipliers[static_cast<size_t> (i)] = 1.0f / static_cast<float> (i / 2);
             }
         }
 
         void addHarmonicCollector (shared_ptr<AdditiveSynthHarmonicCollector> collector)
         {
-            jassert (sampleRate == 0.0f); // Collectors must be created before starting the synth
+            jassert (juce::approximatelyEqual (sampleRate, 0.0f)); // Collectors must be created before starting the synth
             harmonicCollectors.push_back (collector);
         }
 
         void startNote (int midiNoteNumber,
-            float velocity,
-            int currentPitchWheelPosition) override
+            float,
+            int) override
         {
-            jassert (sampleRate != 0.0f);
+            jassert (! juce::approximatelyEqual (sampleRate, 0.0f));
             currentNoteNumber = midiNoteNumber;
 
             if (pitchWheelValue != 0)
@@ -69,7 +74,7 @@ namespace tmf
             }
             else
             {
-                frequency = juce::MidiMessage::getMidiNoteInHertz (midiNoteNumber);
+                frequency = static_cast<float> (juce::MidiMessage::getMidiNoteInHertz (midiNoteNumber));
                 phaseIncrement = (juce::MathConstants<float>::twoPi * frequency) / sampleRate;
             }
 
@@ -99,24 +104,24 @@ namespace tmf
             float cents = newPitchWheelValue / valuesPerCent;
             if (newPitchWheelValue > 0)
             {
-                float hzPerCent = (juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber + 1) - juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber)) / 100.0f;
-                frequency = juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber) + hzPerCent * cents;
+                auto hzPerCent = static_cast<float> ((juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber + 1) - juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber)) / 100.0);
+                frequency = static_cast<float> (juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber)) + hzPerCent * cents;
                 phaseIncrement = (juce::MathConstants<float>::twoPi * frequency) / sampleRate;
             }
             else
             {
-                float hzPerCent = (juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber - 1) - juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber)) / 100.0f;
-                frequency = (float) juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber) - hzPerCent * cents;
+                auto hzPerCent = static_cast<float> ((juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber - 1) - juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber)) / 100.0);
+                frequency = static_cast<float> (juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber)) - hzPerCent * cents;
                 phaseIncrement = (juce::MathConstants<float>::twoPi * frequency) / sampleRate;
             }
         }
 
-        void prepareToPlay (double sampleRate, int samplesPerBlock, int numOutputChannels) override
+        void prepareToPlay (double newSampleRate, int, int numOutputChannels) override
         {
-            this->sampleRate = sampleRate;
+            sampleRate = static_cast<float> (newSampleRate);
             for (auto& collector : harmonicCollectors)
             {
-                collector->prepareToPlay (sampleRate, numOutputChannels);
+                collector->prepareToPlay (newSampleRate, numOutputChannels);
             }
         }
 
@@ -127,7 +132,7 @@ namespace tmf
                 refreshWaveTable();
             }
 
-            float p; // We reset the phase for each channel
+            auto p = phase; // We reset the phase for each channel
             for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
             {
                 p = phase;
@@ -221,8 +226,8 @@ namespace tmf
             waveTableBuffer.clear();
             auto keepRefreshing = false;
 
-            int nyquistFrequency = sampleRate / 2;
-            int nyquistHarmonic = (int) (nyquistFrequency / frequency);
+            auto nyquistFrequency = static_cast<int> (sampleRate / 2.0f);
+            auto nyquistHarmonic = static_cast<int> (static_cast<float> (nyquistFrequency) / frequency);
             for (auto& collector : harmonicCollectors)
             {
                 if (collector->getOrder() == -1)
@@ -232,7 +237,7 @@ namespace tmf
                 // The first entries is reserved for DC component
                 // The second entry is for the last real nyquistHarmonic, which shouldn't be used
                 auto nyquistTableSize = (nyquistHarmonic * 2) + 2;
-                collector->collectHarmonics (waveTableBuffer, jmin (waveTableSize, nyquistTableSize));
+                collector->collectHarmonics (waveTableBuffer, static_cast<size_t> (jmin (waveTableSize, nyquistTableSize)));
                 keepRefreshing = keepRefreshing || collector->waveTableRefreshNeeded();
             }
 
@@ -251,14 +256,14 @@ namespace tmf
             }
         }
 
-        float getWaveSample (float phase, int channel)
+        float getWaveSample (float samplePhase, int channel)
         {
-            jassert(juce::MathConstants<float>::twoPi >= phase);
-            jassert(phase >= 0);
-            double sample = phase / radiantsPerSample;
+            jassert(juce::MathConstants<float>::twoPi >= samplePhase);
+            jassert(samplePhase >= 0);
+            double sample = samplePhase / radiantsPerSample;
             auto waveTable = waveTableBuffer.getReadPointer (channel);
 
-            int firstSample = sample;
+            auto firstSample = static_cast<int> (sample);
             double sampleDecimal = sample - firstSample;
             int secondSample = firstSample + 1;
             if (secondSample == waveTableSize)
@@ -272,7 +277,7 @@ namespace tmf
             float secondSampleValue = waveTable[secondSample];
 
             // Interpolate the two obtained values
-            float sampleValue = firstSampleValue * (1 - sampleDecimal) + secondSampleValue * sampleDecimal;
+            auto sampleValue = static_cast<float> (firstSampleValue * (1.0 - sampleDecimal) + secondSampleValue * sampleDecimal);
 
             return sampleValue;
         }
@@ -282,9 +287,9 @@ namespace tmf
         float frequency;
         float sampleRate = 0;
 
-        float pitchWheelValue;
+        int pitchWheelValue;
 
-        juce::AudioBuffer<float> waveTableBuffer = juce::AudioBuffer<float>(2, waveTableSize);
+        juce::AudioBuffer<float> waveTableBuffer;
         FourierTransform fourierTransform;
         bool needToRefreshWaveTable;
 

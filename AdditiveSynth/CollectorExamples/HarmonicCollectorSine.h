@@ -19,10 +19,10 @@ namespace tmf
         {
             jassert (sampleRate > 0);
             jassert (numChannels > 0);
-            std::vector<float> table = std::vector<float> (tableSize, 0);
+            std::vector<float> table = std::vector<float> (tableSize, 0.0f);
             if (tableSize > 2)
             {
-                table[2] = 1;
+                table[2] = 1.0f;
             }
             this->applyPanAndGainAndRenderToBuffer (audioBuffer, table);
         }

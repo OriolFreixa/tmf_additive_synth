@@ -18,12 +18,12 @@ namespace tmf
         inline static const std::string level = "_LEVEL";
         inline static const std::string order = "_ORDER";
         inline static const std::string pan = "_PAN";
-    };
+    }
 
     struct AdditiveSynthHarmonicCollectorParams
     {
-        float level = 0.5;
-        float pan = 0;
+        float level = 0.5f;
+        float pan = 0.0f;
         int order = -1;
     };
 
@@ -57,10 +57,10 @@ namespace tmf
 
         void prepareToPlay (double sampleRate_, int numOutputChannels)
         {
-            this->sampleRate = sampleRate_;
+            this->sampleRate = static_cast<float> (sampleRate_);
             this->numChannels = numOutputChannels;
-            level.reset (sampleRate, 0.01);
-            pan.reset (sampleRate, 0.01);
+            level.reset (sampleRate, 0.01f);
+            pan.reset (sampleRate, 0.01f);
         }
 
         void advanceSamples (int numSamples)
@@ -87,12 +87,12 @@ namespace tmf
             else if (paramid.endsWith (BaseParameterIdSuffixes::order))
             {
                 // We want to cover the whole range, so -(1000 - (-1)) to 1000 - (-1)
-                modValues.order = juce::jmap (value, -1.f, 1.f, -1001.f, 1001.f);
+                modValues.order = static_cast<int> (juce::jmap (value, -1.0f, 1.0f, -1001.0f, 1001.0f));
             }
             else if (paramid.endsWith (BaseParameterIdSuffixes::pan))
             {
                 // We want to cover the whole range, so -(100 - (-100)) to 100 - (-100)
-                modValues.pan = juce::jmap (value, -1.f, 1.f, -200.f, 200.f);
+                modValues.pan = juce::jmap (value, -1.0f, 1.0f, -200.0f, 200.0f);
             }
 
             doUpdateParameters();
@@ -116,7 +116,7 @@ namespace tmf
                 this->pan.setTargetValue (limitedPan);
             }
 
-            float limitedOrder = juce::jlimit (-1, 1000, modValues.order + paramsValues.order);
+            auto limitedOrder = juce::jlimit (-1, 1000, modValues.order + paramsValues.order);
             this->order = limitedOrder;
         }
 
@@ -127,30 +127,30 @@ namespace tmf
             size_t tableSize = data.size();
             jassert (tableSize <= static_cast<size_t> (audioBlock.getNumSamples()));
 
-            juce::FloatVectorOperations::multiply (data.data(), level.getCurrentValue(), tableSize);
+            juce::FloatVectorOperations::multiply (data.data(), level.getCurrentValue(), static_cast<int> (tableSize));
 
             // From [-100, 100] to [0, 1]
-            auto normalisedPan = (pan.getCurrentValue() * 0.005) + 0.5;
+            auto normalisedPan = (pan.getCurrentValue() * 0.005f) + 0.5f;
 
-            auto leftValue = (1.0 - normalisedPan) * 2;
-            auto rightValue = normalisedPan * 2;
+            auto leftValue = (1.0f - normalisedPan) * 2.0f;
+            auto rightValue = normalisedPan * 2.0f;
 
             auto auxVector = std::vector<float> (tableSize);
-            juce::FloatVectorOperations::multiply (auxVector.data(), data.data(), leftValue, tableSize);
-            juce::FloatVectorOperations::add (audioBlock.getWritePointer (0), auxVector.data(), tableSize);
+            juce::FloatVectorOperations::multiply (auxVector.data(), data.data(), leftValue, static_cast<int> (tableSize));
+            juce::FloatVectorOperations::add (audioBlock.getWritePointer (0), auxVector.data(), static_cast<int> (tableSize));
 
-            juce::FloatVectorOperations::multiply (auxVector.data(), data.data(), rightValue, tableSize);
-            juce::FloatVectorOperations::add (audioBlock.getWritePointer (1), auxVector.data(), tableSize);
+            juce::FloatVectorOperations::multiply (auxVector.data(), data.data(), rightValue, static_cast<int> (tableSize));
+            juce::FloatVectorOperations::add (audioBlock.getWritePointer (1), auxVector.data(), static_cast<int> (tableSize));
         }
 
-        juce::SmoothedValue<float> level = 0.5;
-        juce::SmoothedValue<float> pan = 0;
+        juce::SmoothedValue<float> level = 0.5f;
+        juce::SmoothedValue<float> pan = 0.0f;
         int order = -1;
 
         AdditiveSynthHarmonicCollectorParams paramsValues;
-        AdditiveSynthHarmonicCollectorParams modValues { 0, 0, 0 };
+        AdditiveSynthHarmonicCollectorParams modValues { 0.0f, 0.0f, 0 };
 
-        float sampleRate = 0;
+        float sampleRate = 0.0f;
         int numChannels = 0;
         int currentNote = -1;
 

@@ -34,18 +34,23 @@ namespace tmf
 
         virtual shared_ptr<VoiceInterceptor> getOrCreateVoiceInterceptor (int index) override
         {
-            if (index >= voiceInterceptors.size())
+            jassert (index >= 0);
+            if (index < 0)
+                return {};
+
+            const auto voiceIndex = static_cast<size_t> (index);
+            if (voiceIndex >= voiceInterceptors.size())
             {
-                voiceInterceptors.resize (index + 1);
+                voiceInterceptors.resize (voiceIndex + 1);
 
             }
-            if (!voiceInterceptors[index])
+            if (!voiceInterceptors[voiceIndex])
             {
-                voiceInterceptors[index] = make_shared<VoiceInterceptorAdditiveSynth>();
-                addCollectorsToInterceptor (voiceInterceptors[index], index);
+                voiceInterceptors[voiceIndex] = make_shared<VoiceInterceptorAdditiveSynth>();
+                addCollectorsToInterceptor (voiceInterceptors[voiceIndex], voiceIndex);
 
             }
-            return dynamic_pointer_cast<VoiceInterceptor> (voiceInterceptors[index]);
+            return dynamic_pointer_cast<VoiceInterceptor> (voiceInterceptors[voiceIndex]);
         }
 
         unique_ptr<juce::AudioProcessorParameterGroup> getAudioParameters() override
@@ -58,8 +63,8 @@ namespace tmf
                 result->addChild (std::move (params));
             }
 
-            return std::move (result);
-        };
+            return result;
+        }
 
         vector<string> getAudioParametersIds() override
         {
@@ -86,7 +91,7 @@ namespace tmf
             }
         }
 
-        void parameterChanged (const juce::String& parameterID, float newValue) override
+        void parameterChanged (const juce::String& parameterID, float) override
         {
             for (auto interceptor : voiceInterceptors)
             {
@@ -106,7 +111,7 @@ namespace tmf
             harmonicCollectorManagers.push_back (collector);
         }
 
-        void addCollectorsToInterceptor (shared_ptr<VoiceInterceptorAdditiveSynth> interceptor, int index)
+        void addCollectorsToInterceptor (shared_ptr<VoiceInterceptorAdditiveSynth> interceptor, size_t index)
         {
             for (auto collectorManager : harmonicCollectorManagers)
             {

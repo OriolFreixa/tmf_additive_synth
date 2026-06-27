@@ -40,7 +40,7 @@ namespace tmf
         {
             jassert (sampleRate > 0);
             jassert (numChannels > 0);
-            std::vector<float> table = std::vector<float> (tableSize, 0);
+            std::vector<float> table = std::vector<float> (tableSize, 0.0f);
             int count = 1;
 
             // Start at the configured harmonic and add its octave chain (harmonic * 2^n)
@@ -48,7 +48,7 @@ namespace tmf
             while (2u * harmonicNumber < tableSize && count < this->highBound)
             {
                 if (count >= this->lowBound)
-                    table[2u * harmonicNumber] = 1;
+                    table[2u * harmonicNumber] = 1.0f;
                 harmonicNumber *= 2; // next octave of the current harmonic
                 count++;
             }
@@ -58,7 +58,7 @@ namespace tmf
 
         void setParamsValues (HarmonicCollectorOctavesParams pValues)
         {
-            paramsValues = pValues;
+            octaveParamsValues = pValues;
             doUpdateOctaveParameters();
         }
 
@@ -73,11 +73,11 @@ namespace tmf
             // Optimized for: if (parameterID == (String) (id + HarmonicCollectorOctavesParameterIdSuffixes::lowBound))
             if (parameterID.endsWith (HarmonicCollectorOctavesParameterIdSuffixes::lowBound))
             {
-                modValues.lowBound = juce::jmap (value, -1.f, 1.f, (float) -maxBoundValue, (float) maxBoundValue);
+                octaveModValues.lowBound = static_cast<int> (juce::jmap (value, -1.0f, 1.0f, static_cast<float> (-maxBoundValue), static_cast<float> (maxBoundValue)));
             }
             else if (parameterID.endsWith (HarmonicCollectorOctavesParameterIdSuffixes::highBound))
             {
-                modValues.highBound = juce::jmap (value, -1.f, 1.f, (float) -maxBoundValue, (float) maxBoundValue);
+                octaveModValues.highBound = static_cast<int> (juce::jmap (value, -1.0f, 1.0f, static_cast<float> (-maxBoundValue), static_cast<float> (maxBoundValue)));
             }
             else
             {
@@ -91,12 +91,12 @@ namespace tmf
     private:
         void doUpdateOctaveParameters()
         {
-            lowBound = juce::jlimit (1, maxBoundValue, modValues.lowBound + paramsValues.lowBound);
-            highBound = juce::jlimit (1, maxBoundValue, modValues.highBound + paramsValues.highBound);
+            lowBound = juce::jlimit (1, maxBoundValue, octaveModValues.lowBound + octaveParamsValues.lowBound);
+            highBound = juce::jlimit (1, maxBoundValue, octaveModValues.highBound + octaveParamsValues.highBound);
         }
 
-        HarmonicCollectorOctavesParams paramsValues;
-        HarmonicCollectorOctavesParams modValues = { 0, 0 };
+        HarmonicCollectorOctavesParams octaveParamsValues;
+        HarmonicCollectorOctavesParams octaveModValues = { 0, 0 };
         int lowBound = 1;
         int highBound = maxBoundValue;
         int startHarmonic = 1;
@@ -105,8 +105,8 @@ namespace tmf
     class HarmonicCollectorOctavesManager : public HarmonicCollectorManager<HarmonicCollectorOctaves>
     {
     public:
-        HarmonicCollectorOctavesManager (int startIndex = 1)
-            : startIndex (startIndex)
+        HarmonicCollectorOctavesManager (int newStartIndex = 1)
+            : startIndex (newStartIndex)
         {
         }
     public:
@@ -163,7 +163,7 @@ namespace tmf
         {
             if (parameterID == (String) (getId() + HarmonicCollectorOctavesParameterIdSuffixes::lowBound))
             {
-                paramsOctaves.lowBound = newValue;
+                paramsOctaves.lowBound = static_cast<int> (newValue);
 
                 for (auto& collector : harmonicCollectors)
                 {
@@ -172,7 +172,7 @@ namespace tmf
             }
             else if (parameterID == (String) (getId() + HarmonicCollectorOctavesParameterIdSuffixes::highBound))
             {
-                paramsOctaves.highBound = newValue;
+                paramsOctaves.highBound = static_cast<int> (newValue);
 
                 for (auto& collector : harmonicCollectors)
                 {

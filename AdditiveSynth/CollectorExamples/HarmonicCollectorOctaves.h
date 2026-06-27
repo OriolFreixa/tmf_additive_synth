@@ -99,6 +99,7 @@ namespace tmf
         HarmonicCollectorOctavesParams modValues = { 0, 0 };
         int lowBound = 1;
         int highBound = maxBoundValue;
+        int startHarmonic = 1;
     };
 
     class HarmonicCollectorOctavesManager : public HarmonicCollectorManager<HarmonicCollectorOctaves>

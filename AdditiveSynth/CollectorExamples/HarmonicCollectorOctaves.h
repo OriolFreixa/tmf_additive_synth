@@ -28,16 +28,28 @@ namespace tmf
     class HarmonicCollectorOctaves : public AdditiveSynthHarmonicCollector
     {
     public:
+        HarmonicCollectorOctaves (int startIndex = 1)
+        {
+            if (startIndex <= 1)
+                startHarmonic = 1;
+            else
+                startHarmonic = 2 * (startIndex - 1);
+        }
+
         void collectHarmonics (juce::AudioBuffer<float>& audioBuffer, size_t tableSize) override
         {
             jassert (sampleRate > 0);
             jassert (numChannels > 0);
             std::vector<float> table = std::vector<float> (tableSize, 0);
             int count = 1;
-            for (size_t i = 2; 2 * i < tableSize && count < this->highBound; i *= 2)
+
+            // Start at the configured harmonic and add its octave chain (harmonic * 2^n)
+            size_t harmonicNumber = static_cast<size_t> (startHarmonic);
+            while (2u * harmonicNumber < tableSize && count < this->highBound)
             {
                 if (count >= this->lowBound)
-                    table[2u * i] = 1;
+                    table[2u * harmonicNumber] = 1;
+                harmonicNumber *= 2; // next octave of the current harmonic
                 count++;
             }
 
@@ -92,6 +104,11 @@ namespace tmf
     class HarmonicCollectorOctavesManager : public HarmonicCollectorManager<HarmonicCollectorOctaves>
     {
     public:
+        HarmonicCollectorOctavesManager (int startIndex = 1)
+            : startIndex (startIndex)
+        {
+        }
+    public:
         virtual shared_ptr<AdditiveSynthHarmonicCollector> getOrCreateHarmonicCollector (size_t index) override
         {
             if (index >= harmonicCollectors.size())
@@ -100,7 +117,7 @@ namespace tmf
             }
             if (!harmonicCollectors[index])
             {
-                auto newCollector = make_shared<HarmonicCollectorOctaves>();
+                auto newCollector = make_shared<HarmonicCollectorOctaves>(startIndex);
                 newCollector->setParams (params);
                 newCollector->setId (getId());
                 newCollector->setParamsValues (paramsOctaves);
@@ -169,5 +186,6 @@ namespace tmf
 
     private:
         HarmonicCollectorOctavesParams paramsOctaves;
+        int startIndex = 1;
     };
 }

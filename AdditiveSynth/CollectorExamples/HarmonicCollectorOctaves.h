@@ -25,15 +25,17 @@ namespace tmf
         int highBound = maxBoundValue;
     };
 
+    inline constexpr int getHarmonicCollectorOctavesStartHarmonic (int startIndex)
+    {
+        return startIndex <= 1 ? 1 : (2 * startIndex) - 1;
+    }
+
     class HarmonicCollectorOctaves : public AdditiveSynthHarmonicCollector
     {
     public:
         HarmonicCollectorOctaves (int startIndex = 1)
+            : startHarmonic (getHarmonicCollectorOctavesStartHarmonic (startIndex))
         {
-            if (startIndex <= 1)
-                startHarmonic = 1;
-            else
-                startHarmonic = 2 * (startIndex - 1);
         }
 
         void collectHarmonics (juce::AudioBuffer<float>& audioBuffer, size_t tableSize) override
@@ -45,7 +47,7 @@ namespace tmf
 
             // Start at the configured harmonic and add its octave chain (harmonic * 2^n)
             size_t harmonicNumber = static_cast<size_t> (startHarmonic);
-            while (2u * harmonicNumber < tableSize && count < this->highBound)
+            while (2u * harmonicNumber < tableSize && count <= this->highBound)
             {
                 if (count >= this->lowBound)
                     table[2u * harmonicNumber] = 1.0f;

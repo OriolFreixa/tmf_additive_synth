@@ -29,6 +29,46 @@ TEST_CASE ("Harmonic collectors tolerate tables without first harmonic storage",
     CHECK (buffer.getSample (1, 1) == 0.0f);
 }
 
+TEST_CASE ("Harmonic collector octaves includes the configured high bound", "[tmf_additive_synth][collector]")
+{
+    juce::AudioBuffer<float> buffer { 2, 16 };
+    buffer.clear();
+
+    tmf::HarmonicCollectorOctaves octaves;
+    octaves.prepareToPlay (44100.0, buffer.getNumChannels());
+    octaves.setParamsValues ({ 1, 3 });
+    octaves.collectHarmonics (buffer, 16);
+
+    CHECK (buffer.getSample (0, 2) > 0.0f);
+    CHECK (buffer.getSample (0, 4) > 0.0f);
+    CHECK (buffer.getSample (0, 8) > 0.0f);
+    CHECK (buffer.getSample (1, 2) > 0.0f);
+    CHECK (buffer.getSample (1, 4) > 0.0f);
+    CHECK (buffer.getSample (1, 8) > 0.0f);
+}
+
+TEST_CASE ("Harmonic collector octave start indexes select new interval classes", "[tmf_additive_synth][collector]")
+{
+    CHECK (tmf::getHarmonicCollectorOctavesStartHarmonic (1) == 1);
+    CHECK (tmf::getHarmonicCollectorOctavesStartHarmonic (2) == 3);
+    CHECK (tmf::getHarmonicCollectorOctavesStartHarmonic (3) == 5);
+
+    juce::AudioBuffer<float> buffer { 2, 32 };
+    buffer.clear();
+
+    tmf::HarmonicCollectorOctaves octaves { 2 };
+    octaves.prepareToPlay (44100.0, buffer.getNumChannels());
+    octaves.setParamsValues ({ 1, 2 });
+    octaves.collectHarmonics (buffer, 32);
+
+    CHECK (buffer.getSample (0, 4) == 0.0f);
+    CHECK (buffer.getSample (0, 6) > 0.0f);
+    CHECK (buffer.getSample (0, 12) > 0.0f);
+    CHECK (buffer.getSample (1, 4) == 0.0f);
+    CHECK (buffer.getSample (1, 6) > 0.0f);
+    CHECK (buffer.getSample (1, 12) > 0.0f);
+}
+
 TEST_CASE ("Fourier transform inverse keeps caller buffer bounds", "[tmf_additive_synth][fft]")
 {
     constexpr int fftOrder = 3;

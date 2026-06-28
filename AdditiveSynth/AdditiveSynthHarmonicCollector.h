@@ -41,10 +41,24 @@ namespace tmf
         int getOrder() const { return order; }
 
         /// <summary>
-        /// Sets the harmonics of the collector
+        /// Adds this collector's harmonics to the wavetable frequency-domain buffer.
         /// </summary>
-        /// <param name="audioBuffer">Input/output audio buffer. Content in the frequency domain in packed format. Info: https://www.intel.com/content/www/us/en/docs/ipp/developer-guide-reference/2022-0/packed-formats.html</param>
-        /// <param name="dataSize">Length of the audioBuffer</param>
+        /// <param name="audioBuffer">
+        /// Input/output buffer containing one packed real-FFT spectrum per channel. The layout is
+        /// the even-length IPP Perm format, not Pack or CCS:
+        ///   index 0: DC real component
+        ///   index 1: Nyquist real component, reserved by this synth and normally left unused
+        ///   index 2 * harmonicNumber: real component for harmonicNumber, starting at 1
+        ///   index 2 * harmonicNumber + 1: imaginary component for harmonicNumber, starting at 1
+        /// Existing contents may have been written by earlier collectors, so collectors can inspect
+        /// and add to the buffer. Use applyPanAndGainAndRenderToBuffer() when rendering a temporary
+        /// packed table so level and pan are applied consistently.
+        /// </param>
+        /// <param name="dataSize">
+        /// Number of valid packed-float entries collectors may read or write. This can be smaller
+        /// than audioBuffer.getNumSamples() because it is capped to the current note's Nyquist
+        /// harmonic. Never access an index greater than or equal to dataSize.
+        /// </param>
         virtual void collectHarmonics (juce::AudioBuffer<float>& audioBuffer, size_t dataSize) = 0;
 
         virtual bool waveTableRefreshNeeded() const { return level.isSmoothing() || pan.isSmoothing(); }

@@ -13,6 +13,7 @@
 #include "AdditiveSynth/CollectorExamples/HarmonicCollectorSine.h"
 #include "AdditiveSynth/CollectorExamples/HarmonicCollectorOctaves.h"
 #include "AdditiveSynth/CollectorExamples/HarmonicCollectorEnFifther.h"
+#include "AdditiveSynth/CollectorExamples/HarmonicCollectorUnevenBands.h"
 
 /*
 BEGIN_JUCE_MODULE_DECLARATION

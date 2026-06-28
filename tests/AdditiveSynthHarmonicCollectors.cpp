@@ -1,4 +1,5 @@
 #include "tmf_additive_synth/AdditiveSynth/CollectorExamples/HarmonicCollectorEnFifther.h"
+#include "tmf_additive_synth/AdditiveSynth/CollectorExamples/HarmonicCollectorUnevenBands.h"
 #include "tmf_additive_synth/AdditiveSynth/CollectorExamples/HarmonicCollectorSine.h"
 #include "tmf_additive_synth/FFT.h"
 #include "tmf_additive_synth/tmf_additive_synth.h"
@@ -69,6 +70,39 @@ TEST_CASE ("Harmonic collector octave start indexes select new interval classes"
     CHECK (buffer.getSample (1, 12) > 0.0f);
 }
 
+TEST_CASE ("Harmonic collector noise writes controlled spectral bands", "[tmf_additive_synth][collector]")
+{
+    juce::AudioBuffer<float> buffer { 2, 140 };
+    buffer.clear();
+
+    tmf::HarmonicCollectorUnevenBands noise { 0, 33, 63 };
+    noise.prepareToPlay (44100.0, buffer.getNumChannels());
+    noise.setParams ({ 1.0f, 0.0f, 0 });
+    noise.collectHarmonics (buffer, static_cast<size_t> (buffer.getNumSamples()));
+
+    CHECK (buffer.getSample (0, 64) == 0.0f);
+    CHECK (buffer.getSample (0, 66) > 0.0f);
+    CHECK (buffer.getSample (0, 67) == 0.0f);
+    CHECK (buffer.getSample (0, 126) > 0.0f);
+    CHECK (buffer.getSample (0, 130) == 0.0f);
+}
+
+TEST_CASE ("Harmonic collector noise selects a single configured high band", "[tmf_additive_synth][collector]")
+{
+    juce::AudioBuffer<float> buffer { 2, 1024 };
+    buffer.clear();
+
+    tmf::HarmonicCollectorUnevenBands noise { 3, 257, 511 };
+    noise.prepareToPlay (44100.0, buffer.getNumChannels());
+    noise.setParams ({ 1.0f, 0.0f, 0 });
+    noise.collectHarmonics (buffer, static_cast<size_t> (buffer.getNumSamples()));
+
+    CHECK (buffer.getSample (0, 510) == 0.0f);
+    CHECK (buffer.getSample (0, 514) > 0.0f);
+    CHECK (buffer.getSample (0, 515) == 0.0f);
+    CHECK (buffer.getSample (0, 1022) > 0.0f);
+}
+
 TEST_CASE ("Fourier transform inverse keeps caller buffer bounds", "[tmf_additive_synth][fft]")
 {
     constexpr int fftOrder = 3;
@@ -136,6 +170,65 @@ TEST_CASE ("Harmonic collector manager applies parameter changes to active colle
 
     CHECK (manager.getOrder() == 7);
     CHECK (collector->getOrder() == 7);
+}
+
+TEST_CASE ("Harmonic collector noise manager exposes one band collector parameter set", "[tmf_additive_synth][manager]")
+{
+    tmf::HarmonicCollectorNoiseManager manager { 2, 129, 255 };
+
+    const auto ids = manager.getAudioParametersIds();
+    REQUIRE (ids.size() == 3);
+
+    CHECK (ids[0] == tmf::HarmonicCollectorNoiseManager::getLevelParameterIdStatic (2));
+    CHECK (ids[0].ends_with (tmf::BaseParameterIdSuffixes::level));
+    CHECK (ids[1].ends_with (tmf::BaseParameterIdSuffixes::order));
+    CHECK (ids[2].ends_with (tmf::BaseParameterIdSuffixes::pan));
+
+    const auto modTargets = manager.getModTargetData();
+    REQUIRE (modTargets.size() == ids.size());
+
+    for (size_t i = 0; i < ids.size(); ++i)
+        CHECK (modTargets[i].id.toStdString() == ids[i]);
+}
+
+TEST_CASE ("Harmonic collector noise manager uses the level parameter as collector level", "[tmf_additive_synth][manager]")
+{
+    tmf::HarmonicCollectorNoiseManager manager { 0, 33, 63 };
+    auto collector = std::dynamic_pointer_cast<tmf::HarmonicCollectorUnevenBands> (manager.getOrCreateHarmonicCollector (0));
+    REQUIRE (collector != nullptr);
+
+    auto params = manager.getAudioParameters();
+    auto* levelParam = dynamic_cast<juce::AudioParameterFloat*> (params->getParameters (false)[0]);
+    REQUIRE (levelParam != nullptr);
+    CHECK (levelParam->get() == 0.0f);
+
+    collector->prepareToPlay (44100.0, 2);
+
+    juce::AudioBuffer<float> buffer { 2, 140 };
+    buffer.clear();
+    collector->collectHarmonics (buffer, static_cast<size_t> (buffer.getNumSamples()));
+    CHECK (buffer.getSample (0, 66) == 0.0f);
+
+    manager.parameterChanged (juce::String { manager.getAudioParametersIds()[0] }, 1.0f);
+
+    buffer.clear();
+    collector->collectHarmonics (buffer, static_cast<size_t> (buffer.getNumSamples()));
+    CHECK (buffer.getSample (0, 66) > 0.0f);
+}
+
+TEST_CASE ("Harmonic collector noise managers create separate configured bands", "[tmf_additive_synth][manager]")
+{
+    static constexpr int numNoiseBands = 4;
+
+    for (int i = 0; i < numNoiseBands; ++i)
+    {
+        const auto firstHarmonic = (32 << i) + 1;
+        const auto lastHarmonic = (64 << i) - 1;
+        tmf::HarmonicCollectorNoiseManager manager { i, firstHarmonic, lastHarmonic };
+        auto collector = std::dynamic_pointer_cast<tmf::HarmonicCollectorUnevenBands> (manager.getOrCreateHarmonicCollector (0));
+        REQUIRE (collector != nullptr);
+        CHECK (collector->getBandIndex() == i);
+    }
 }
 
 TEST_CASE ("Additive synth manager renders a configured harmonic collector", "[tmf_additive_synth][voice]")

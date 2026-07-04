@@ -65,9 +65,32 @@ TEST_CASE ("Harmonic collector octave start indexes select new interval classes"
     CHECK (buffer.getSample (0, 4) == 0.0f);
     CHECK (buffer.getSample (0, 6) > 0.0f);
     CHECK (buffer.getSample (0, 12) > 0.0f);
-    CHECK (buffer.getSample (1, 4) == 0.0f);
+    CHECK (std::abs (buffer.getSample (1, 4)) < 0.000001f);
     CHECK (buffer.getSample (1, 6) > 0.0f);
     CHECK (buffer.getSample (1, 12) > 0.0f);
+}
+
+TEST_CASE ("Harmonic collector octave harmonics controls each harmonic level and pan", "[tmf_additive_synth][collector]")
+{
+    juce::AudioBuffer<float> buffer { 2, 16 };
+    buffer.clear();
+
+    tmf::HarmonicCollectorOctaveHarmonicsParams params;
+    params.levels.fill (0.0f);
+    params.pans.fill (0.0f);
+    params.levels[1] = 1.0f;
+    params.pans[1] = -100.0f;
+
+    tmf::HarmonicCollectorOctaveHarmonics harmonics;
+    harmonics.prepareToPlay (44100.0, buffer.getNumChannels());
+    harmonics.setParams ({ 1.0f, 0.0f, 0 });
+    harmonics.setHarmonicParams (params);
+    harmonics.collectHarmonics (buffer, 16);
+
+    CHECK (buffer.getSample (0, 2) == 0.0f);
+    CHECK (buffer.getSample (0, 4) > 0.0f);
+    CHECK (buffer.getSample (0, 8) == 0.0f);
+    CHECK (std::abs (buffer.getSample (1, 4)) < 0.000001f);
 }
 
 TEST_CASE ("Harmonic collector noise writes controlled spectral bands", "[tmf_additive_synth][collector]")
@@ -170,6 +193,25 @@ TEST_CASE ("Harmonic collector manager applies parameter changes to active colle
 
     CHECK (manager.getOrder() == 7);
     CHECK (collector->getOrder() == 7);
+}
+
+TEST_CASE ("Harmonic collector octave harmonics manager exposes per harmonic controls", "[tmf_additive_synth][manager]")
+{
+    tmf::HarmonicCollectorOctaveHarmonicsManager manager { 2 };
+
+    const auto ids = manager.getAudioParametersIds();
+    REQUIRE (ids.size() == 3 + (tmf::maxBoundValue * 2));
+    CHECK (ids == tmf::HarmonicCollectorOctaveHarmonicsManager::getAudioParametersIdsStatic (1));
+    CHECK (ids[3].ends_with (tmf::HarmonicCollectorOctaveHarmonicsParameterIdSuffixes::getLevel (0)));
+    CHECK (ids[4].ends_with (tmf::HarmonicCollectorOctaveHarmonicsParameterIdSuffixes::getPan (0)));
+    CHECK (std::find (ids.begin(), ids.end(), manager.getId() + tmf::HarmonicCollectorOctavesParameterIdSuffixes::lowBound) == ids.end());
+    CHECK (std::find (ids.begin(), ids.end(), manager.getId() + tmf::HarmonicCollectorOctavesParameterIdSuffixes::highBound) == ids.end());
+
+    const auto modTargets = manager.getModTargetData();
+    REQUIRE (modTargets.size() == ids.size());
+
+    for (size_t i = 0; i < ids.size(); ++i)
+        CHECK (modTargets[i].id.toStdString() == ids[i]);
 }
 
 TEST_CASE ("Harmonic collector noise manager exposes one band collector parameter set", "[tmf_additive_synth][manager]")

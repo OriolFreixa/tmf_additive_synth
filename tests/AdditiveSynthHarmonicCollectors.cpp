@@ -180,6 +180,9 @@ TEST_CASE ("Harmonic collector manager exposes parameter ids and mod targets", "
 
     for (size_t i = 0; i < ids.size(); ++i)
         CHECK (modTargets[i].id.toStdString() == ids[i]);
+
+    REQUIRE (modTargets[0].groupPath.size() == 1);
+    CHECK (modTargets[0].groupPath[0].contains ("Sine"));
 }
 
 TEST_CASE ("Harmonic collector manager applies parameter changes to active collectors", "[tmf_additive_synth][manager]")
@@ -212,6 +215,9 @@ TEST_CASE ("Harmonic collector octave harmonics manager exposes per harmonic con
 
     for (size_t i = 0; i < ids.size(); ++i)
         CHECK (modTargets[i].id.toStdString() == ids[i]);
+
+    REQUIRE (modTargets[0].groupPath.size() == 1);
+    CHECK (modTargets[0].groupPath[0].contains ("Octave Harmonics"));
 }
 
 TEST_CASE ("Harmonic collector noise manager exposes one band collector parameter set", "[tmf_additive_synth][manager]")
@@ -231,6 +237,9 @@ TEST_CASE ("Harmonic collector noise manager exposes one band collector paramete
 
     for (size_t i = 0; i < ids.size(); ++i)
         CHECK (modTargets[i].id.toStdString() == ids[i]);
+
+    REQUIRE (modTargets[0].groupPath.size() == 1);
+    CHECK (modTargets[0].groupPath[0].contains ("Noise Band"));
 }
 
 TEST_CASE ("Harmonic collector noise manager uses the level parameter as collector level", "[tmf_additive_synth][manager]")

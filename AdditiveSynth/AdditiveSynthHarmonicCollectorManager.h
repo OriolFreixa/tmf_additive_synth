@@ -129,6 +129,7 @@ namespace tmf
 
                 data.id = paramWithId->paramID;
                 data.name = paramWithId->getName (INT_MAX);
+                data.groupPath.add (getDisplayName());
                 modTargets.push_back (data);
             }
 

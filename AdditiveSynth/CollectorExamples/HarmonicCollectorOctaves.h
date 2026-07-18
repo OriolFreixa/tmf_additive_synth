@@ -33,6 +33,11 @@ namespace tmf
     class HarmonicCollectorOctaves : public AdditiveSynthHarmonicCollector
     {
     public:
+        static std::string getDisplayNameStatic()
+        {
+            return "Octaves";
+        }
+
         HarmonicCollectorOctaves (int startIndex = 1)
             : startHarmonic (getHarmonicCollectorOctavesStartHarmonic (startIndex))
         {
@@ -132,10 +137,11 @@ namespace tmf
         virtual unique_ptr<juce::AudioProcessorParameterGroup> getAudioParameters() override
         {
             auto id = getId();
+            auto displayName = getDisplayName();
             auto baseResult = HarmonicCollectorManager::getAudioParameters();
 
-            baseResult->addChild (make_unique<juce::AudioParameterInt> (juce::ParameterID { id + HarmonicCollectorOctavesParameterIdSuffixes::lowBound, 1 }, id + "Low Bound", 1, maxBoundValue, 1));
-            baseResult->addChild (make_unique<juce::AudioParameterInt> (juce::ParameterID { id + HarmonicCollectorOctavesParameterIdSuffixes::highBound, 1 }, id + "High Bound", 1, maxBoundValue, maxBoundValue));
+            baseResult->addChild (make_unique<juce::AudioParameterInt> (juce::ParameterID { id + HarmonicCollectorOctavesParameterIdSuffixes::lowBound, 1 }, displayName + " Low Bound", 1, maxBoundValue, 1));
+            baseResult->addChild (make_unique<juce::AudioParameterInt> (juce::ParameterID { id + HarmonicCollectorOctavesParameterIdSuffixes::highBound, 1 }, displayName + " High Bound", 1, maxBoundValue, maxBoundValue));
 
             return baseResult;
         }
@@ -188,6 +194,11 @@ namespace tmf
         }
 
     private:
+        string getDisplayName() const override
+        {
+            return "Octaves " + std::to_string (juce::jmax (1, startIndex));
+        }
+
         HarmonicCollectorOctavesParams paramsOctaves;
         int startIndex = 1;
     };

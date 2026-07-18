@@ -16,6 +16,11 @@ namespace tmf
     class HarmonicCollectorUnevenBands : public AdditiveSynthHarmonicCollector
     {
     public:
+        static std::string getDisplayNameStatic()
+        {
+            return "Noise Band";
+        }
+
         HarmonicCollectorUnevenBands (int newBandIndex = 0, int newFirstHarmonic = 1, int newLastHarmonic = 1)
             : bandIndex (juce::jmax (0, newBandIndex)),
               firstHarmonic (juce::jmax (1, newFirstHarmonic)),
@@ -90,11 +95,12 @@ namespace tmf
         unique_ptr<juce::AudioProcessorParameterGroup> getAudioParameters() override
         {
             auto id = getId();
-            auto result = make_unique<juce::AudioProcessorParameterGroup> (id, id, "_");
+            auto displayName = getDisplayName();
+            auto result = make_unique<juce::AudioProcessorParameterGroup> (id, displayName, "_");
 
-            result->addChild (make_unique<juce::AudioParameterFloat> (juce::ParameterID { id + BaseParameterIdSuffixes::level, 1 }, id + "Level", juce::NormalisableRange<float> { 0.0f, 1.0f, 0.001f, 0.65f }, params.level));
-            result->addChild (make_unique<juce::AudioParameterInt> (juce::ParameterID { id + BaseParameterIdSuffixes::order, 1 }, id + "Order", -1, 1000, params.order));
-            result->addChild (make_unique<juce::AudioParameterFloat> (juce::ParameterID { id + BaseParameterIdSuffixes::pan, 1 }, id + "Pan", juce::NormalisableRange<float> { -100.0f, 100.0f, 0.001f, 1.0f }, params.pan));
+            result->addChild (make_unique<juce::AudioParameterFloat> (juce::ParameterID { id + BaseParameterIdSuffixes::level, 1 }, displayName + " Level", juce::NormalisableRange<float> { 0.0f, 1.0f, 0.001f, 0.65f }, params.level));
+            result->addChild (make_unique<juce::AudioParameterInt> (juce::ParameterID { id + BaseParameterIdSuffixes::order, 1 }, displayName + " Order", -1, 1000, params.order));
+            result->addChild (make_unique<juce::AudioParameterFloat> (juce::ParameterID { id + BaseParameterIdSuffixes::pan, 1 }, displayName + " Pan", juce::NormalisableRange<float> { -100.0f, 100.0f, 0.001f, 1.0f }, params.pan));
 
             return result;
         }
@@ -146,6 +152,11 @@ namespace tmf
         }
 
     private:
+        string getDisplayName() const override
+        {
+            return "Noise Band " + std::to_string (bandIndex + 1);
+        }
+
         static string getTypeId()
         {
             return "Noise";

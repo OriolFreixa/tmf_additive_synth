@@ -42,6 +42,11 @@ namespace tmf
     class HarmonicCollectorOctaveHarmonics : public AdditiveSynthHarmonicCollector
     {
     public:
+        static std::string getDisplayNameStatic()
+        {
+            return "Octave Harmonics";
+        }
+
         HarmonicCollectorOctaveHarmonics (int startIndex = 1)
             : startHarmonic (getHarmonicCollectorOctavesStartHarmonic (startIndex))
         {
@@ -172,6 +177,7 @@ namespace tmf
         unique_ptr<juce::AudioProcessorParameterGroup> getAudioParameters() override
         {
             auto id = getId();
+            auto displayName = getDisplayName();
             auto result = HarmonicCollectorManager::getAudioParameters();
 
             for (int harmonicIndex = 0; harmonicIndex < maxBoundValue; ++harmonicIndex)
@@ -179,12 +185,12 @@ namespace tmf
                 const auto harmonicNumber = getHarmonicNumber (harmonicIndex);
                 result->addChild (make_unique<juce::AudioParameterFloat> (
                     juce::ParameterID { id + HarmonicCollectorOctaveHarmonicsParameterIdSuffixes::getLevel (harmonicIndex), 1 },
-                    id + "Harmonic " + std::to_string (harmonicNumber) + " Level",
+                    displayName + " Harmonic " + std::to_string (harmonicNumber) + " Level",
                     juce::NormalisableRange<float> { 0.0f, 1.0f, 0.001f, 0.65f },
                     harmonicParams.levels[static_cast<size_t> (harmonicIndex)]));
                 result->addChild (make_unique<juce::AudioParameterFloat> (
                     juce::ParameterID { id + HarmonicCollectorOctaveHarmonicsParameterIdSuffixes::getPan (harmonicIndex), 1 },
-                    id + "Harmonic " + std::to_string (harmonicNumber) + " Pan",
+                    displayName + " Harmonic " + std::to_string (harmonicNumber) + " Pan",
                     juce::NormalisableRange<float> { -100.0f, 100.0f, 0.001f, 1.0f },
                     harmonicParams.pans[static_cast<size_t> (harmonicIndex)]));
             }
@@ -248,6 +254,11 @@ namespace tmf
         }
 
     private:
+        string getDisplayName() const override
+        {
+            return "Octave Harmonics " + std::to_string (startIndex);
+        }
+
         void updateHarmonicParameter (const juce::String& parameterID, float newValue)
         {
             const auto collectorId = getId();

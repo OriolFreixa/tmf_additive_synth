@@ -35,6 +35,7 @@ namespace tmf
     public:
         HarmonicCollectorManager()
         {
+            uniqueIdIndex = uniqueIdCount;
             uniqueId = getTypeIdStatic() + std::to_string (uniqueIdCount);
             uniqueIdCount++;
         }
@@ -64,12 +65,13 @@ namespace tmf
         virtual unique_ptr<juce::AudioProcessorParameterGroup> getAudioParameters() override
         {
             auto id = getId();
-            auto result = make_unique<juce::AudioProcessorParameterGroup> (id, id, "_");
+            auto displayName = getDisplayName();
+            auto result = make_unique<juce::AudioProcessorParameterGroup> (id, displayName, "_");
 
             // All parameters must be prefixed by the id of the collector
-            result->addChild (make_unique<juce::AudioParameterFloat> (juce::ParameterID { id + BaseParameterIdSuffixes::level, 1 }, id + "Level", juce::NormalisableRange<float> { 0.0f, 1.0f, 0.001f, 0.65f }, 0.5f));
-            result->addChild (make_unique<juce::AudioParameterInt> (juce::ParameterID { id + BaseParameterIdSuffixes::order, 1 }, id + "Order", -1, 1000, -1));
-            result->addChild (make_unique<juce::AudioParameterFloat> (juce::ParameterID { id + BaseParameterIdSuffixes::pan, 1 }, id + "Pan", juce::NormalisableRange<float> { -100.0f, 100.0f, 0.001f, 1.0f }, 0.0f));
+            result->addChild (make_unique<juce::AudioParameterFloat> (juce::ParameterID { id + BaseParameterIdSuffixes::level, 1 }, displayName + " Level", juce::NormalisableRange<float> { 0.0f, 1.0f, 0.001f, 0.65f }, 0.5f));
+            result->addChild (make_unique<juce::AudioParameterInt> (juce::ParameterID { id + BaseParameterIdSuffixes::order, 1 }, displayName + " Order", -1, 1000, -1));
+            result->addChild (make_unique<juce::AudioParameterFloat> (juce::ParameterID { id + BaseParameterIdSuffixes::pan, 1 }, displayName + " Pan", juce::NormalisableRange<float> { -100.0f, 100.0f, 0.001f, 1.0f }, 0.0f));
 
             return result;
         }
@@ -138,6 +140,11 @@ namespace tmf
         AdditiveSynthHarmonicCollectorParams params;
         int currentNote = -1;
 
+        virtual string getDisplayName() const
+        {
+            return HC::getDisplayNameStatic() + " " + std::to_string (uniqueIdIndex + 1);
+        }
+
         static string getTypeIdStatic()
         {
             if (typeId.empty())
@@ -155,6 +162,7 @@ namespace tmf
 
     private:
         string uniqueId;
+        int uniqueIdIndex = 0;
         inline static int uniqueIdCount = 0;
         inline static string typeId = "";
     };

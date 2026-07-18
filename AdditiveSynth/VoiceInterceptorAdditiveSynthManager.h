@@ -56,7 +56,7 @@ namespace tmf
         unique_ptr<juce::AudioProcessorParameterGroup> getAudioParameters() override
         {
             // TODO: Add main parameters
-            auto result = make_unique<juce::AudioProcessorParameterGroup> ("ADDITIVESYNTH", "ADDITIVESYNTH", "_");
+            auto result = make_unique<juce::AudioProcessorParameterGroup> ("ADDITIVESYNTH", "Additive Synth", "_");
             for (auto collectorManager : harmonicCollectorManagers)
             {
                 auto params = collectorManager->getAudioParameters();

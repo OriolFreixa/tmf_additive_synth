@@ -15,6 +15,11 @@ namespace tmf
     class HarmonicCollectorSine : public AdditiveSynthHarmonicCollector
     {
     public:
+        static std::string getDisplayNameStatic()
+        {
+            return "Sine";
+        }
+
         void collectHarmonics (juce::AudioBuffer<float>& audioBuffer, size_t tableSize) override
         {
             jassert (sampleRate > 0);

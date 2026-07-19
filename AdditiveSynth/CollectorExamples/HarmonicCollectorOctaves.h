@@ -134,26 +134,27 @@ namespace tmf
             return dynamic_pointer_cast<AdditiveSynthHarmonicCollector> (harmonicCollectors[index]);
         }
 
-        virtual unique_ptr<juce::AudioProcessorParameterGroup> getAudioParameters() override
+        virtual vector<SynthParameterDescription> getParameterDescriptions() override
         {
             auto id = getId();
             auto displayName = getDisplayName();
-            auto baseResult = HarmonicCollectorManager::getAudioParameters();
-
-            baseResult->addChild (make_unique<juce::AudioParameterInt> (juce::ParameterID { id + HarmonicCollectorOctavesParameterIdSuffixes::lowBound, 1 }, displayName + " Low Bound", 1, maxBoundValue, 1));
-            baseResult->addChild (make_unique<juce::AudioParameterInt> (juce::ParameterID { id + HarmonicCollectorOctavesParameterIdSuffixes::highBound, 1 }, displayName + " High Bound", 1, maxBoundValue, maxBoundValue));
-
-            return baseResult;
-        }
-
-        virtual vector<string> getAudioParametersIds() override
-        {
-            auto ids = HarmonicCollectorManager::getAudioParametersIds();
-
-            ids.push_back (getId() + HarmonicCollectorOctavesParameterIdSuffixes::lowBound);
-            ids.push_back (getId() + HarmonicCollectorOctavesParameterIdSuffixes::highBound);
-
-            return ids;
+            auto descriptions = HarmonicCollectorManager::getParameterDescriptions();
+            SynthParameterGroupPath groupPath { { id, displayName, "_" } };
+            descriptions.push_back (makeIntSynthParameter (groupPath,
+                id + HarmonicCollectorOctavesParameterIdSuffixes::lowBound,
+                displayName + " Low Bound",
+                1,
+                maxBoundValue,
+                1,
+                true));
+            descriptions.push_back (makeIntSynthParameter (std::move (groupPath),
+                id + HarmonicCollectorOctavesParameterIdSuffixes::highBound,
+                displayName + " High Bound",
+                1,
+                maxBoundValue,
+                maxBoundValue,
+                true));
+            return descriptions;
         }
 
         static vector<string> getAudioParametersIdsStatic (int instanceNumber)

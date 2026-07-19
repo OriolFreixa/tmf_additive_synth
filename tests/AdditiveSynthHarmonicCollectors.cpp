@@ -11,6 +11,19 @@
 #include <array>
 #include <cmath>
 
+namespace
+{
+    std::vector<std::string> getDescriptionIds (const std::vector<tmf::SynthParameterDescription>& descriptions)
+    {
+        std::vector<std::string> ids;
+        ids.reserve (descriptions.size());
+        for (const auto& description : descriptions)
+            ids.push_back (description.id);
+
+        return ids;
+    }
+}
+
 TEST_CASE ("Harmonic collectors tolerate tables without first harmonic storage", "[tmf_additive_synth][collector]")
 {
     juce::AudioBuffer<float> buffer { 2, 2 };
@@ -164,25 +177,23 @@ TEST_CASE ("Fourier transform inverse keeps harmonic amplitude audible", "[tmf_a
     CHECK (min < -0.5f);
 }
 
-TEST_CASE ("Harmonic collector manager exposes parameter ids and mod targets", "[tmf_additive_synth][manager]")
+TEST_CASE ("Harmonic collector manager describes parameters and modulation capability", "[tmf_additive_synth][manager]")
 {
     tmf::HarmonicCollectorManager<tmf::HarmonicCollectorSine> manager;
 
-    const auto ids = manager.getAudioParametersIds();
+    const auto descriptions = manager.getParameterDescriptions();
+    const auto ids = getDescriptionIds (descriptions);
     REQUIRE (ids.size() == 3);
 
     CHECK (ids[0].ends_with (tmf::BaseParameterIdSuffixes::level));
     CHECK (ids[1].ends_with (tmf::BaseParameterIdSuffixes::order));
     CHECK (ids[2].ends_with (tmf::BaseParameterIdSuffixes::pan));
 
-    const auto modTargets = manager.getModTargetData();
-    REQUIRE (modTargets.size() == ids.size());
+    for (const auto& description : descriptions)
+        CHECK (description.canBeModulationTarget);
 
-    for (size_t i = 0; i < ids.size(); ++i)
-        CHECK (modTargets[i].id.toStdString() == ids[i]);
-
-    REQUIRE (modTargets[0].groupPath.size() == 1);
-    CHECK (modTargets[0].groupPath[0].contains ("Sine"));
+    REQUIRE (descriptions[0].groupPath.size() == 1);
+    CHECK (descriptions[0].groupPath[0].name.contains ("Sine"));
 }
 
 TEST_CASE ("Harmonic collector manager applies parameter changes to active collectors", "[tmf_additive_synth][manager]")
@@ -191,18 +202,47 @@ TEST_CASE ("Harmonic collector manager applies parameter changes to active colle
     auto collector = manager.getOrCreateHarmonicCollector (0);
     REQUIRE (collector != nullptr);
 
-    const auto ids = manager.getAudioParametersIds();
+    const auto ids = getDescriptionIds (manager.getParameterDescriptions());
     manager.parameterChanged (juce::String { ids[1] }, 7.0f);
 
     CHECK (manager.getOrder() == 7);
     CHECK (collector->getOrder() == 7);
 }
 
+TEST_CASE ("InterceptSynth centrally routes additive collector parameter policy", "[tmf_additive_synth][manager]")
+{
+    auto collectorManager = std::make_shared<tmf::HarmonicCollectorManager<tmf::HarmonicCollectorSine>>();
+    const auto orderId = collectorManager->getId() + tmf::BaseParameterIdSuffixes::order;
+    auto policy = tmf::SynthParameterPolicy {};
+    policy.hideFromHost (orderId).hideFromMatrix (orderId);
+
+    auto additiveManager = std::make_shared<tmf::VoiceInterceptorAdditiveSynthManager> (
+        std::vector<std::shared_ptr<tmf::HarmonicCollectorManagerInterface>> { collectorManager });
+    tmf::InterceptSynth synth ({ additiveManager }, policy, 1);
+
+    CHECK (collectorManager->getParameterDescriptions().size() == 3);
+    CHECK (synth.getHostParameterDescriptions().size() == 2);
+    CHECK (synth.getModulationTargetDescriptions().size() == 2);
+}
+
+TEST_CASE ("Additive synth manager routes parameter changes to collector managers", "[tmf_additive_synth][manager]")
+{
+    auto collectorManager = std::make_shared<tmf::HarmonicCollectorManager<tmf::HarmonicCollectorSine>>();
+    const auto orderId = collectorManager->getId() + tmf::BaseParameterIdSuffixes::order;
+
+    tmf::VoiceInterceptorAdditiveSynthManager additiveManager (
+        std::vector<std::shared_ptr<tmf::HarmonicCollectorManagerInterface>> { collectorManager });
+    additiveManager.parameterChanged (orderId, 9.0f);
+
+    CHECK (collectorManager->getOrder() == 9);
+}
+
 TEST_CASE ("Harmonic collector octave harmonics manager exposes per harmonic controls", "[tmf_additive_synth][manager]")
 {
     tmf::HarmonicCollectorOctaveHarmonicsManager manager { 2 };
 
-    const auto ids = manager.getAudioParametersIds();
+    const auto descriptions = manager.getParameterDescriptions();
+    const auto ids = getDescriptionIds (descriptions);
     REQUIRE (ids.size() == 3 + (tmf::maxBoundValue * 2));
     CHECK (ids == tmf::HarmonicCollectorOctaveHarmonicsManager::getAudioParametersIdsStatic (1));
     CHECK (ids[3].ends_with (tmf::HarmonicCollectorOctaveHarmonicsParameterIdSuffixes::getLevel (0)));
@@ -210,21 +250,19 @@ TEST_CASE ("Harmonic collector octave harmonics manager exposes per harmonic con
     CHECK (std::find (ids.begin(), ids.end(), manager.getId() + tmf::HarmonicCollectorOctavesParameterIdSuffixes::lowBound) == ids.end());
     CHECK (std::find (ids.begin(), ids.end(), manager.getId() + tmf::HarmonicCollectorOctavesParameterIdSuffixes::highBound) == ids.end());
 
-    const auto modTargets = manager.getModTargetData();
-    REQUIRE (modTargets.size() == ids.size());
+    for (const auto& description : descriptions)
+        CHECK (description.canBeModulationTarget);
 
-    for (size_t i = 0; i < ids.size(); ++i)
-        CHECK (modTargets[i].id.toStdString() == ids[i]);
-
-    REQUIRE (modTargets[0].groupPath.size() == 1);
-    CHECK (modTargets[0].groupPath[0].contains ("Octave Harmonics"));
+    REQUIRE (descriptions[0].groupPath.size() == 1);
+    CHECK (descriptions[0].groupPath[0].name.contains ("Octave Harmonics"));
 }
 
 TEST_CASE ("Harmonic collector noise manager exposes one band collector parameter set", "[tmf_additive_synth][manager]")
 {
     tmf::HarmonicCollectorNoiseManager manager { 2, 129, 255 };
 
-    const auto ids = manager.getAudioParametersIds();
+    const auto descriptions = manager.getParameterDescriptions();
+    const auto ids = getDescriptionIds (descriptions);
     REQUIRE (ids.size() == 3);
 
     CHECK (ids[0] == tmf::HarmonicCollectorNoiseManager::getLevelParameterIdStatic (2));
@@ -232,14 +270,11 @@ TEST_CASE ("Harmonic collector noise manager exposes one band collector paramete
     CHECK (ids[1].ends_with (tmf::BaseParameterIdSuffixes::order));
     CHECK (ids[2].ends_with (tmf::BaseParameterIdSuffixes::pan));
 
-    const auto modTargets = manager.getModTargetData();
-    REQUIRE (modTargets.size() == ids.size());
+    for (const auto& description : descriptions)
+        CHECK (description.canBeModulationTarget);
 
-    for (size_t i = 0; i < ids.size(); ++i)
-        CHECK (modTargets[i].id.toStdString() == ids[i]);
-
-    REQUIRE (modTargets[0].groupPath.size() == 1);
-    CHECK (modTargets[0].groupPath[0].contains ("Noise Band"));
+    REQUIRE (descriptions[0].groupPath.size() == 1);
+    CHECK (descriptions[0].groupPath[0].name.contains ("Noise Band"));
 }
 
 TEST_CASE ("Harmonic collector noise manager uses the level parameter as collector level", "[tmf_additive_synth][manager]")
@@ -248,8 +283,9 @@ TEST_CASE ("Harmonic collector noise manager uses the level parameter as collect
     auto collector = std::dynamic_pointer_cast<tmf::HarmonicCollectorUnevenBands> (manager.getOrCreateHarmonicCollector (0));
     REQUIRE (collector != nullptr);
 
-    auto params = manager.getAudioParameters();
-    auto* levelParam = dynamic_cast<juce::AudioParameterFloat*> (params->getParameters (false)[0]);
+    const auto descriptions = manager.getParameterDescriptions();
+    auto levelParameter = descriptions[0].createAudioParameter();
+    auto* levelParam = dynamic_cast<juce::AudioParameterFloat*> (levelParameter.get());
     REQUIRE (levelParam != nullptr);
     CHECK (levelParam->get() == 0.0f);
 
@@ -260,7 +296,7 @@ TEST_CASE ("Harmonic collector noise manager uses the level parameter as collect
     collector->collectHarmonics (buffer, static_cast<size_t> (buffer.getNumSamples()));
     CHECK (buffer.getSample (0, 66) == 0.0f);
 
-    manager.parameterChanged (juce::String { manager.getAudioParametersIds()[0] }, 1.0f);
+    manager.parameterChanged (juce::String { descriptions[0].id }, 1.0f);
 
     buffer.clear();
     collector->collectHarmonics (buffer, static_cast<size_t> (buffer.getNumSamples()));
@@ -285,7 +321,7 @@ TEST_CASE ("Harmonic collector noise managers create separate configured bands",
 TEST_CASE ("Additive synth manager renders a configured harmonic collector", "[tmf_additive_synth][voice]")
 {
     auto collectorManager = std::make_shared<tmf::HarmonicCollectorManager<tmf::HarmonicCollectorSine>>();
-    const auto ids = collectorManager->getAudioParametersIds();
+    const auto ids = getDescriptionIds (collectorManager->getParameterDescriptions());
     collectorManager->parameterChanged (juce::String { ids[0] }, 1.0f);
     collectorManager->parameterChanged (juce::String { ids[1] }, 1.0f);
 

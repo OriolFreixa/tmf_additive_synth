@@ -9,12 +9,17 @@
 */
 #pragma once
 #include "AdditiveSynthHarmonicCollector.h"
-#include "tmf_intercept_synth/synth/Interceptors/VoiceInterceptorWithModTargets.h"
+#include "tmf_intercept_synth/synth/SynthParameterDescription.h"
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <memory>
 #include <string>
+#include <vector>
 
 namespace tmf
 {
+    using namespace juce;
+    using namespace std;
+
     class HarmonicCollectorManagerInterface : public juce::AudioProcessorValueTreeState::Listener
     {
     public:
@@ -22,9 +27,7 @@ namespace tmf
         virtual ~HarmonicCollectorManagerInterface() = default;
         virtual std::shared_ptr<AdditiveSynthHarmonicCollector> getOrCreateHarmonicCollector (size_t index) = 0;
         virtual std::string getId() const = 0;
-        virtual std::unique_ptr<juce::AudioProcessorParameterGroup> getAudioParameters() = 0;
-        virtual std::vector<std::string> getAudioParametersIds() = 0;
-        virtual vector<ModTargetData> getModTargetData() = 0;
+        virtual std::vector<SynthParameterDescription> getParameterDescriptions() = 0;
     };
 
     template <class HC>
@@ -62,28 +65,16 @@ namespace tmf
             return dynamic_pointer_cast<AdditiveSynthHarmonicCollector> (harmonicCollectors[index]);
         }
 
-        virtual unique_ptr<juce::AudioProcessorParameterGroup> getAudioParameters() override
+        virtual vector<SynthParameterDescription> getParameterDescriptions() override
         {
             auto id = getId();
             auto displayName = getDisplayName();
-            auto result = make_unique<juce::AudioProcessorParameterGroup> (id, displayName, "_");
-
-            // All parameters must be prefixed by the id of the collector
-            result->addChild (make_unique<juce::AudioParameterFloat> (juce::ParameterID { id + BaseParameterIdSuffixes::level, 1 }, displayName + " Level", juce::NormalisableRange<float> { 0.0f, 1.0f, 0.001f, 0.65f }, 0.5f));
-            result->addChild (make_unique<juce::AudioParameterInt> (juce::ParameterID { id + BaseParameterIdSuffixes::order, 1 }, displayName + " Order", -1, 1000, -1));
-            result->addChild (make_unique<juce::AudioParameterFloat> (juce::ParameterID { id + BaseParameterIdSuffixes::pan, 1 }, displayName + " Pan", juce::NormalisableRange<float> { -100.0f, 100.0f, 0.001f, 1.0f }, 0.0f));
-
-            return result;
-        }
-
-        virtual vector<string> getAudioParametersIds() override
-        {
-            vector<string> ids;
-            ids.push_back (uniqueId + BaseParameterIdSuffixes::level);
-            ids.push_back (uniqueId + BaseParameterIdSuffixes::order);
-            ids.push_back (uniqueId + BaseParameterIdSuffixes::pan);
-
-            return ids;
+            SynthParameterGroupPath groupPath { { id, displayName, "_" } };
+            return {
+                makeFloatSynthParameter (groupPath, id + BaseParameterIdSuffixes::level, displayName + " Level", { 0.0f, 1.0f, 0.001f, 0.65f }, 0.5f, true),
+                makeIntSynthParameter (groupPath, id + BaseParameterIdSuffixes::order, displayName + " Order", -1, 1000, -1, true),
+                makeFloatSynthParameter (std::move (groupPath), id + BaseParameterIdSuffixes::pan, displayName + " Pan", { -100.0f, 100.0f, 0.001f, 1.0f }, 0.0f, true)
+            };
         }
 
         static vector<string> getAudioParametersIdsStatic (int instanceNumber)
@@ -116,24 +107,6 @@ namespace tmf
             {
                 collector->setParams (params);
             }
-        }
-
-        virtual vector<ModTargetData> getModTargetData() override
-        {
-            auto audioParams = getAudioParameters();
-            vector<ModTargetData> modTargets;
-            for (auto& param : audioParams->getParameters (false))
-            {
-                ModTargetData data;
-                auto paramWithId = static_cast<juce::AudioProcessorParameterWithID*> (param);
-
-                data.id = paramWithId->paramID;
-                data.name = paramWithId->getName (INT_MAX);
-                data.groupPath.add (getDisplayName());
-                modTargets.push_back (data);
-            }
-
-            return modTargets;
         }
 
     protected:

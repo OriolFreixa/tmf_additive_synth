@@ -174,33 +174,36 @@ namespace tmf
             return dynamic_pointer_cast<AdditiveSynthHarmonicCollector> (harmonicCollectors[index]);
         }
 
-        unique_ptr<juce::AudioProcessorParameterGroup> getAudioParameters() override
+        vector<SynthParameterDescription> getParameterDescriptions() override
         {
             auto id = getId();
             auto displayName = getDisplayName();
-            auto result = HarmonicCollectorManager::getAudioParameters();
+            auto result = HarmonicCollectorManager::getParameterDescriptions();
+            SynthParameterGroupPath groupPath { { id, displayName, "_" } };
 
             for (int harmonicIndex = 0; harmonicIndex < maxBoundValue; ++harmonicIndex)
             {
                 const auto harmonicNumber = getHarmonicNumber (harmonicIndex);
-                result->addChild (make_unique<juce::AudioParameterFloat> (
-                    juce::ParameterID { id + HarmonicCollectorOctaveHarmonicsParameterIdSuffixes::getLevel (harmonicIndex), 1 },
-                    displayName + " Harmonic " + std::to_string (harmonicNumber) + " Level",
-                    juce::NormalisableRange<float> { 0.0f, 1.0f, 0.001f, 0.65f },
-                    harmonicParams.levels[static_cast<size_t> (harmonicIndex)]));
-                result->addChild (make_unique<juce::AudioParameterFloat> (
-                    juce::ParameterID { id + HarmonicCollectorOctaveHarmonicsParameterIdSuffixes::getPan (harmonicIndex), 1 },
-                    displayName + " Harmonic " + std::to_string (harmonicNumber) + " Pan",
-                    juce::NormalisableRange<float> { -100.0f, 100.0f, 0.001f, 1.0f },
-                    harmonicParams.pans[static_cast<size_t> (harmonicIndex)]));
+                const auto levelId = id + HarmonicCollectorOctaveHarmonicsParameterIdSuffixes::getLevel (harmonicIndex);
+                const auto panId = id + HarmonicCollectorOctaveHarmonicsParameterIdSuffixes::getPan (harmonicIndex);
+
+                result.push_back (makeFloatSynthParameter (
+                        groupPath,
+                        levelId,
+                        displayName + " Harmonic " + std::to_string (harmonicNumber) + " Level",
+                        { 0.0f, 1.0f, 0.001f, 0.65f },
+                        harmonicParams.levels[static_cast<size_t> (harmonicIndex)],
+                        true));
+                result.push_back (makeFloatSynthParameter (
+                        groupPath,
+                        panId,
+                        displayName + " Harmonic " + std::to_string (harmonicNumber) + " Pan",
+                        { -100.0f, 100.0f, 0.001f, 1.0f },
+                        harmonicParams.pans[static_cast<size_t> (harmonicIndex)],
+                        true));
             }
 
             return result;
-        }
-
-        vector<string> getAudioParametersIds() override
-        {
-            return getAudioParametersIdsStatic (startIndex - 1);
         }
 
         static vector<string> getAudioParametersIdsStatic (int instanceNumber)

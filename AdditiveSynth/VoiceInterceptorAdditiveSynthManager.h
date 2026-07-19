@@ -12,6 +12,7 @@
 #include "tmf_intercept_synth/tmf_intercept_synth.h"
 #include "VoiceInterceptorAdditiveSynth.h"
 #include "AdditiveSynthHarmonicCollectorManager.h"
+#include <map>
 
 namespace tmf
 {
@@ -24,12 +25,7 @@ namespace tmf
         VoiceInterceptorAdditiveSynthManager (vector<shared_ptr<HarmonicCollectorManagerInterface>> collectors)
         {
             for (auto collector : collectors)
-            {
                 addCollector (collector);
-                auto collectorModTargetData = collector->getModTargetData();
-
-                modTargetData.insert (modTargetData.end(), collectorModTargetData.begin(), collectorModTargetData.end());
-            }
         }
 
         virtual shared_ptr<VoiceInterceptor> getOrCreateVoiceInterceptor (int index) override
@@ -53,46 +49,19 @@ namespace tmf
             return dynamic_pointer_cast<VoiceInterceptor> (voiceInterceptors[voiceIndex]);
         }
 
-        unique_ptr<juce::AudioProcessorParameterGroup> getAudioParameters() override
+        vector<SynthParameterDescription> getParameterDescriptions() override
         {
-            // TODO: Add main parameters
-            auto result = make_unique<juce::AudioProcessorParameterGroup> ("ADDITIVESYNTH", "Additive Synth", "_");
-            for (auto collectorManager : harmonicCollectorManagers)
-            {
-                auto params = collectorManager->getAudioParameters();
-                result->addChild (std::move (params));
-            }
-
-            return result;
+            return parameterDescriptions;
         }
 
-        vector<string> getAudioParametersIds() override
+        void parameterChanged (const juce::String& parameterID, float newValue) override
         {
-            vector<string> ids;
-            for (auto collectorManager : harmonicCollectorManagers)
-            {
-                auto idsToAdd = collectorManager->getAudioParametersIds();
-                ids.insert (ids.end(), idsToAdd.begin(), idsToAdd.end());
-            }
-            
-            return ids;
-        }
+            auto owner = parameterOwners.find (parameterID.toStdString());
+            jassert (owner != parameterOwners.end());
+            if (owner == parameterOwners.end())
+                return;
 
-        virtual void setupAPVTS (juce::AudioProcessorValueTreeState& apvts) override
-        {
-            for (auto collectorManager : harmonicCollectorManagers)
-            {
-                auto idsToAdd = collectorManager->getAudioParametersIds();
-                for (auto param : idsToAdd)
-                {
-                    apvts.addParameterListener (param, collectorManager.get());
-                    apvts.addParameterListener (param, this);
-                }
-            }
-        }
-
-        void parameterChanged (const juce::String& parameterID, float) override
-        {
+            owner->second->parameterChanged (parameterID, newValue);
             for (auto interceptor : voiceInterceptors)
             {
                 interceptor->markWavetableAsNeedsRefresh();
@@ -108,7 +77,24 @@ namespace tmf
 
         void addCollector (shared_ptr<HarmonicCollectorManagerInterface> collector)
         {
+            auto descriptions = collector->getParameterDescriptions();
+            for (auto& description : descriptions)
+                registerCollectorParameter (description, collector);
+
             harmonicCollectorManagers.push_back (collector);
+        }
+
+        void registerCollectorParameter (SynthParameterDescription description,
+            const shared_ptr<HarmonicCollectorManagerInterface>& collector)
+        {
+            auto inserted = parameterOwners.emplace (description.id, collector);
+            jassert (inserted.second);
+            if (! inserted.second)
+                return;
+
+            description.groupPath.insert (description.groupPath.begin(),
+                SynthParameterGroupDescription { "ADDITIVESYNTH", "Additive Synth", "_" });
+            parameterDescriptions.push_back (std::move (description));
         }
 
         void addCollectorsToInterceptor (shared_ptr<VoiceInterceptorAdditiveSynth> interceptor, size_t index)
@@ -119,6 +105,9 @@ namespace tmf
                 interceptor->addHarmonicCollector (hc);
             }
         }
+
         vector<shared_ptr<HarmonicCollectorManagerInterface>> harmonicCollectorManagers;
+        vector<SynthParameterDescription> parameterDescriptions;
+        map<string, shared_ptr<HarmonicCollectorManagerInterface>> parameterOwners;
     };
 }

@@ -87,22 +87,16 @@ namespace tmf
             return getTypeId() + std::to_string (bandIndex);
         }
 
-        vector<string> getAudioParametersIds() override
-        {
-            return getAudioParametersIdsStatic (bandIndex);
-        }
-
-        unique_ptr<juce::AudioProcessorParameterGroup> getAudioParameters() override
+        vector<SynthParameterDescription> getParameterDescriptions() override
         {
             auto id = getId();
             auto displayName = getDisplayName();
-            auto result = make_unique<juce::AudioProcessorParameterGroup> (id, displayName, "_");
-
-            result->addChild (make_unique<juce::AudioParameterFloat> (juce::ParameterID { id + BaseParameterIdSuffixes::level, 1 }, displayName + " Level", juce::NormalisableRange<float> { 0.0f, 1.0f, 0.001f, 0.65f }, params.level));
-            result->addChild (make_unique<juce::AudioParameterInt> (juce::ParameterID { id + BaseParameterIdSuffixes::order, 1 }, displayName + " Order", -1, 1000, params.order));
-            result->addChild (make_unique<juce::AudioParameterFloat> (juce::ParameterID { id + BaseParameterIdSuffixes::pan, 1 }, displayName + " Pan", juce::NormalisableRange<float> { -100.0f, 100.0f, 0.001f, 1.0f }, params.pan));
-
-            return result;
+            SynthParameterGroupPath groupPath { { id, displayName, "_" } };
+            return {
+                makeFloatSynthParameter (groupPath, id + BaseParameterIdSuffixes::level, displayName + " Level", { 0.0f, 1.0f, 0.001f, 0.65f }, params.level, true),
+                makeIntSynthParameter (groupPath, id + BaseParameterIdSuffixes::order, displayName + " Order", -1, 1000, params.order, true),
+                makeFloatSynthParameter (std::move (groupPath), id + BaseParameterIdSuffixes::pan, displayName + " Pan", { -100.0f, 100.0f, 0.001f, 1.0f }, params.pan, true)
+            };
         }
 
         shared_ptr<AdditiveSynthHarmonicCollector> getOrCreateHarmonicCollector (size_t index) override

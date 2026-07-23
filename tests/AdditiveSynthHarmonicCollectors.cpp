@@ -222,7 +222,9 @@ TEST_CASE ("InterceptSynth centrally routes additive collector parameter policy"
 
     CHECK (collectorManager->getParameterDescriptions().size() == 3);
     CHECK (synth.getHostParameterDescriptions().size() == 2);
-    CHECK (synth.getModulationTargetDescriptions().size() == 2);
+    const auto& targetDescriptions = synth.getModulationTargetDescriptions();
+    REQUIRE (targetDescriptions.size() == 130);
+    CHECK (targetDescriptions[2].id == tmf::VoiceInterceptorModMatrixConstants::amountParameterId + "0");
 }
 
 TEST_CASE ("Additive synth manager routes parameter changes to collector managers", "[tmf_additive_synth][manager]")

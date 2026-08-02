@@ -10,6 +10,7 @@
 
 #pragma once
 #include "juce_audio_basics/juce_audio_basics.h"
+#include <optional>
 #include <string>
 namespace tmf
 {
@@ -111,6 +112,26 @@ namespace tmf
 
             doUpdateParameters();
             return true;
+        }
+
+        /// Returns this collector's effective normalized position for a supported target.
+        /// Example: a pan value of zero returns `0.5f`.
+        virtual std::optional<float> getEffectiveModulationTargetPosition (
+            const juce::String& parameterId) const noexcept
+        {
+            if (!parameterId.startsWith (id))
+                return std::nullopt;
+
+            if (parameterId.endsWith (BaseParameterIdSuffixes::level))
+                return juce::jlimit (0.0f, 1.0f, level.getTargetValue());
+
+            if (parameterId.endsWith (BaseParameterIdSuffixes::pan))
+                return juce::jmap (juce::jlimit (-100.0f, 100.0f, pan.getTargetValue()), -100.0f, 100.0f, 0.0f, 1.0f);
+
+            if (parameterId.endsWith (BaseParameterIdSuffixes::order))
+                return static_cast<float> (juce::jlimit (-1, 1000, order) + 1) / 1001.0f;
+
+            return std::nullopt;
         }
 
     protected:

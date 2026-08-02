@@ -94,7 +94,7 @@ namespace tmf
         bool updateModTargetValue (juce::String parameterID, float value) override
         {
             jassert (id != "");
-            if (! parameterID.startsWith (id))
+            if (!parameterID.startsWith (id))
                 return false;
 
             for (int harmonicIndex = 0; harmonicIndex < maxBoundValue; ++harmonicIndex)
@@ -125,6 +125,24 @@ namespace tmf
         float getHarmonicPan (int harmonicIndex) const
         {
             return harmonicPans[static_cast<size_t> (juce::jlimit (0, maxBoundValue - 1, harmonicIndex))];
+        }
+
+        std::optional<float> getEffectiveModulationTargetPosition (
+            const juce::String& parameterId) const noexcept override
+        {
+            if (!parameterId.startsWith (id))
+                return std::nullopt;
+
+            for (int harmonicIndex = 0; harmonicIndex < maxBoundValue; ++harmonicIndex)
+            {
+                if (parameterId.endsWith (HarmonicCollectorOctaveHarmonicsParameterIdSuffixes::getLevel (harmonicIndex)))
+                    return getHarmonicLevel (harmonicIndex);
+
+                if (parameterId.endsWith (HarmonicCollectorOctaveHarmonicsParameterIdSuffixes::getPan (harmonicIndex)))
+                    return juce::jmap (getHarmonicPan (harmonicIndex), -100.0f, 100.0f, 0.0f, 1.0f);
+            }
+
+            return AdditiveSynthHarmonicCollector::getEffectiveModulationTargetPosition (parameterId);
         }
 
     private:
@@ -162,7 +180,7 @@ namespace tmf
             if (index >= harmonicCollectors.size())
                 harmonicCollectors.resize (index + 1);
 
-            if (! harmonicCollectors[index])
+            if (!harmonicCollectors[index])
             {
                 auto newCollector = make_shared<HarmonicCollectorOctaveHarmonics> (startIndex);
                 newCollector->setParams (params);
@@ -188,19 +206,19 @@ namespace tmf
                 const auto panId = id + HarmonicCollectorOctaveHarmonicsParameterIdSuffixes::getPan (harmonicIndex);
 
                 result.push_back (makeFloatSynthParameter (
-                        groupPath,
-                        levelId,
-                        displayName + " Harmonic " + std::to_string (harmonicNumber) + " Level",
-                        { 0.0f, 1.0f, 0.001f, 0.65f },
-                        harmonicParams.levels[static_cast<size_t> (harmonicIndex)],
-                        true));
+                    groupPath,
+                    levelId,
+                    displayName + " Harmonic " + std::to_string (harmonicNumber) + " Level",
+                    { 0.0f, 1.0f, 0.001f, 0.65f },
+                    harmonicParams.levels[static_cast<size_t> (harmonicIndex)],
+                    true));
                 result.push_back (makeFloatSynthParameter (
-                        groupPath,
-                        panId,
-                        displayName + " Harmonic " + std::to_string (harmonicNumber) + " Pan",
-                        { -100.0f, 100.0f, 0.001f, 1.0f },
-                        harmonicParams.pans[static_cast<size_t> (harmonicIndex)],
-                        true));
+                    groupPath,
+                    panId,
+                    displayName + " Harmonic " + std::to_string (harmonicNumber) + " Pan",
+                    { -100.0f, 100.0f, 0.001f, 1.0f },
+                    harmonicParams.pans[static_cast<size_t> (harmonicIndex)],
+                    true));
             }
 
             return result;
@@ -248,7 +266,7 @@ namespace tmf
 
             for (auto& collector : harmonicCollectors)
             {
-                if (! collector)
+                if (!collector)
                     continue;
 
                 collector->setParams (params);

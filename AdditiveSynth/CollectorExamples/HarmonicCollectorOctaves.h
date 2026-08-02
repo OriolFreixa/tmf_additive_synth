@@ -95,7 +95,28 @@ namespace tmf
             return true;
         }
 
+        std::optional<float> getEffectiveModulationTargetPosition (
+            const juce::String& parameterId) const noexcept override
+        {
+            if (!parameterId.startsWith (id))
+                return std::nullopt;
+
+            if (parameterId.endsWith (HarmonicCollectorOctavesParameterIdSuffixes::lowBound))
+                return normalizedBoundPosition (lowBound);
+
+            if (parameterId.endsWith (HarmonicCollectorOctavesParameterIdSuffixes::highBound))
+                return normalizedBoundPosition (highBound);
+
+            return AdditiveSynthHarmonicCollector::getEffectiveModulationTargetPosition (parameterId);
+        }
+
     private:
+        static float normalizedBoundPosition (int bound) noexcept
+        {
+            return static_cast<float> (juce::jlimit (1, maxBoundValue, bound) - 1)
+                   / static_cast<float> (maxBoundValue - 1);
+        }
+
         void doUpdateOctaveParameters()
         {
             lowBound = juce::jlimit (1, maxBoundValue, octaveModValues.lowBound + octaveParamsValues.lowBound);
@@ -116,6 +137,7 @@ namespace tmf
             : startIndex (newStartIndex)
         {
         }
+
     public:
         virtual shared_ptr<AdditiveSynthHarmonicCollector> getOrCreateHarmonicCollector (size_t index) override
         {
@@ -125,7 +147,7 @@ namespace tmf
             }
             if (!harmonicCollectors[index])
             {
-                auto newCollector = make_shared<HarmonicCollectorOctaves>(startIndex);
+                auto newCollector = make_shared<HarmonicCollectorOctaves> (startIndex);
                 newCollector->setParams (params);
                 newCollector->setId (getId());
                 newCollector->setParamsValues (paramsOctaves);

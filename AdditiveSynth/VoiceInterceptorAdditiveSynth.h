@@ -9,9 +9,9 @@
 */
 
 #pragma once
-#include "tmf_intercept_synth/tmf_intercept_synth.h"
 #include "../FFT.h"
 #include "AdditiveSynthHarmonicCollector.h"
+#include "tmf_intercept_synth/tmf_intercept_synth.h"
 #include <algorithm>
 
 static constexpr int waveTableOrder = 11;
@@ -21,11 +21,11 @@ static constexpr double radiantsPerSample = juce::MathConstants<double>::twoPi /
 namespace tmf
 {
     /// <summary>
-    /// Added additive synth module. Additive synth is a generator interceptor. 
-    /// It works by "collecting" harmonics from harmonic collectors, adding them 
+    /// Added additive synth module. Additive synth is a generator interceptor.
+    /// It works by "collecting" harmonics from harmonic collectors, adding them
     /// together and printing them to the buffer.
-    /// A harmonic collector si a class which prints a set of harmonics to the 
-    /// waveTable (preferebly, it takes in account the contents of the table, printed 
+    /// A harmonic collector si a class which prints a set of harmonics to the
+    /// waveTable (preferebly, it takes in account the contents of the table, printed
     /// by other harmonic collectors)
     /// </summary>
     using namespace std;
@@ -65,7 +65,7 @@ namespace tmf
             float,
             int) override
         {
-            jassert (! juce::approximatelyEqual (sampleRate, 0.0f));
+            jassert (!juce::approximatelyEqual (sampleRate, 0.0f));
             currentNoteNumber = midiNoteNumber;
 
             if (pitchWheelValue != 0)
@@ -86,7 +86,7 @@ namespace tmf
             }
         }
 
-        void clearCurrentNote() override 
+        void clearCurrentNote() override
         {
             currentNoteNumber = -1;
             for (auto& collector : harmonicCollectors)
@@ -101,7 +101,7 @@ namespace tmf
             int numberOfSemitones = 2;
             float valuesPerCent = 8192.0f / ((float) numberOfSemitones * 100.0f);
             newPitchWheelValue -= 8192; //We center the pitchWheelValue
-            float cents = newPitchWheelValue / valuesPerCent;
+            float cents = static_cast<float> (newPitchWheelValue) / valuesPerCent;
             if (newPitchWheelValue > 0)
             {
                 auto hzPerCent = static_cast<float> ((juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber + 1) - juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber)) / 100.0);
@@ -139,7 +139,7 @@ namespace tmf
                 float* channelData = buffer.getWritePointer (channel, startSample);
                 for (int sample = 0; sample < numSamples; ++sample)
                 {
-                    channelData[sample] += getWaveSample(p, channel);
+                    channelData[sample] += getWaveSample (p, channel);
                     p += phaseIncrement;
                     if (p >= juce::MathConstants<float>::twoPi)
                         p -= juce::MathConstants<float>::twoPi;
@@ -177,8 +177,8 @@ namespace tmf
         void orderCollectors()
         {
             std::sort (
-                this->harmonicCollectors.begin(), 
-                this->harmonicCollectors.end(), 
+                this->harmonicCollectors.begin(),
+                this->harmonicCollectors.end(),
                 [] (const shared_ptr<AdditiveSynthHarmonicCollector>& a, const shared_ptr<AdditiveSynthHarmonicCollector>& b) {
                     return a->getOrder() < b->getOrder();
                 });
@@ -192,9 +192,10 @@ namespace tmf
             if (cachedCollector != modParameterToCollector.end())
             {
                 auto collector = cachedCollector->second;
-                
+
                 auto hit = collector->updateModTargetValue (id, value);
                 jassert (hit);
+                juce::ignoreUnused (hit);
             }
             else
             {
@@ -207,6 +208,16 @@ namespace tmf
             }
 
             markWavetableAsNeedsRefresh();
+        }
+
+        std::optional<float> getEffectiveModulationTargetPosition (
+            const juce::String& id) const noexcept override
+        {
+            for (const auto& collector : harmonicCollectors)
+                if (const auto position = collector->getEffectiveModulationTargetPosition (id))
+                    return position;
+
+            return std::nullopt;
         }
 
     private:
@@ -241,7 +252,6 @@ namespace tmf
                 keepRefreshing = keepRefreshing || collector->waveTableRefreshNeeded();
             }
 
-
             return keepRefreshing;
         }
 
@@ -258,8 +268,8 @@ namespace tmf
 
         float getWaveSample (float samplePhase, int channel)
         {
-            jassert(juce::MathConstants<float>::twoPi >= samplePhase);
-            jassert(samplePhase >= 0);
+            jassert (juce::MathConstants<float>::twoPi >= samplePhase);
+            jassert (samplePhase >= 0);
             double sample = samplePhase / radiantsPerSample;
             auto waveTable = waveTableBuffer.getReadPointer (channel);
 
@@ -268,7 +278,7 @@ namespace tmf
             int secondSample = firstSample + 1;
             if (secondSample == waveTableSize)
                 secondSample = 0;
-               
+
             // Read the corresponding values
             jassert (firstSample >= 0 && firstSample < waveTableSize);
             float firstSampleValue = waveTable[firstSample];

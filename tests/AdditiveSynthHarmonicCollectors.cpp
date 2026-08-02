@@ -1,6 +1,6 @@
 #include "tmf_additive_synth/AdditiveSynth/CollectorExamples/HarmonicCollectorEnFifther.h"
-#include "tmf_additive_synth/AdditiveSynth/CollectorExamples/HarmonicCollectorUnevenBands.h"
 #include "tmf_additive_synth/AdditiveSynth/CollectorExamples/HarmonicCollectorSine.h"
+#include "tmf_additive_synth/AdditiveSynth/CollectorExamples/HarmonicCollectorUnevenBands.h"
 #include "tmf_additive_synth/FFT.h"
 #include "tmf_additive_synth/tmf_additive_synth.h"
 
@@ -207,6 +207,25 @@ TEST_CASE ("Harmonic collector manager applies parameter changes to active colle
 
     CHECK (manager.getOrder() == 7);
     CHECK (collector->getOrder() == 7);
+}
+
+TEST_CASE ("Harmonic collector reports effective normalized modulation positions",
+    "[tmf_additive_synth][modulation-feedback]")
+{
+    tmf::HarmonicCollectorManager<tmf::HarmonicCollectorSine> manager;
+    auto collector = manager.getOrCreateHarmonicCollector (0);
+    REQUIRE (collector != nullptr);
+    const auto ids = getDescriptionIds (manager.getParameterDescriptions());
+    REQUIRE (ids.size() == 3);
+
+    collector->updateModTargetValue (ids[0], 0.25f);
+    collector->updateModTargetValue (ids[2], 0.25f);
+    REQUIRE (collector->getEffectiveModulationTargetPosition (ids[0]).has_value());
+    REQUIRE (collector->getEffectiveModulationTargetPosition (ids[2]).has_value());
+    CHECK (*collector->getEffectiveModulationTargetPosition (ids[0])
+           == Catch::Approx (0.75f));
+    CHECK (*collector->getEffectiveModulationTargetPosition (ids[2])
+           == Catch::Approx (0.75f));
 }
 
 TEST_CASE ("InterceptSynth centrally routes additive collector parameter policy", "[tmf_additive_synth][manager]")

@@ -226,20 +226,45 @@ namespace tmf
 
         static vector<string> getAudioParametersIdsStatic (int instanceNumber)
         {
-            const auto id = getTypeId() + std::to_string (juce::jmax (0, instanceNumber));
             vector<string> ids {
-                id + BaseParameterIdSuffixes::level,
-                id + BaseParameterIdSuffixes::order,
-                id + BaseParameterIdSuffixes::pan
+                getLevelParameterIdStatic (instanceNumber),
+                getOrderParameterIdStatic (instanceNumber),
+                getPanParameterIdStatic (instanceNumber)
             };
 
             for (int harmonicIndex = 0; harmonicIndex < maxBoundValue; ++harmonicIndex)
             {
-                ids.push_back (id + HarmonicCollectorOctaveHarmonicsParameterIdSuffixes::getLevel (harmonicIndex));
-                ids.push_back (id + HarmonicCollectorOctaveHarmonicsParameterIdSuffixes::getPan (harmonicIndex));
+                ids.push_back (getHarmonicLevelParameterIdStatic (instanceNumber, harmonicIndex));
+                ids.push_back (getHarmonicPanParameterIdStatic (instanceNumber, harmonicIndex));
             }
 
             return ids;
+        }
+
+        /// Returns the collector-level gain parameter ID. Example: `getLevelParameterIdStatic (0)`.
+        static string getLevelParameterIdStatic (int instanceNumber)
+        {
+            return getInstanceIdStatic (instanceNumber) + BaseParameterIdSuffixes::level;
+        }
+
+        /// Returns the collector-level stereo pan parameter ID. Example: `getPanParameterIdStatic (0)`.
+        static string getPanParameterIdStatic (int instanceNumber)
+        {
+            return getInstanceIdStatic (instanceNumber) + BaseParameterIdSuffixes::pan;
+        }
+
+        /// Returns one harmonic gain parameter ID. Example: `getHarmonicLevelParameterIdStatic (0, 2)`.
+        static string getHarmonicLevelParameterIdStatic (int instanceNumber, int harmonicIndex)
+        {
+            return getInstanceIdStatic (instanceNumber)
+                   + HarmonicCollectorOctaveHarmonicsParameterIdSuffixes::getLevel (harmonicIndex);
+        }
+
+        /// Returns one harmonic stereo pan parameter ID. Example: `getHarmonicPanParameterIdStatic (0, 2)`.
+        static string getHarmonicPanParameterIdStatic (int instanceNumber, int harmonicIndex)
+        {
+            return getInstanceIdStatic (instanceNumber)
+                   + HarmonicCollectorOctaveHarmonicsParameterIdSuffixes::getPan (harmonicIndex);
         }
 
         static int getHarmonicNumberStatic (int instanceNumber, int harmonicIndex)
@@ -308,6 +333,16 @@ namespace tmf
         static string getTypeId()
         {
             return "OctHarm";
+        }
+
+        static string getInstanceIdStatic (int instanceNumber)
+        {
+            return getTypeId() + std::to_string (juce::jmax (0, instanceNumber));
+        }
+
+        static string getOrderParameterIdStatic (int instanceNumber)
+        {
+            return getInstanceIdStatic (instanceNumber) + BaseParameterIdSuffixes::order;
         }
 
         HarmonicCollectorOctaveHarmonicsParams harmonicParams;

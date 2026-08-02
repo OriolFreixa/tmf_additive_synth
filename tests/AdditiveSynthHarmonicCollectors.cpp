@@ -266,8 +266,18 @@ TEST_CASE ("Harmonic collector octave harmonics manager exposes per harmonic con
     const auto ids = getDescriptionIds (descriptions);
     REQUIRE (ids.size() == 3 + (tmf::maxBoundValue * 2));
     CHECK (ids == tmf::HarmonicCollectorOctaveHarmonicsManager::getAudioParametersIdsStatic (1));
-    CHECK (ids[3].ends_with (tmf::HarmonicCollectorOctaveHarmonicsParameterIdSuffixes::getLevel (0)));
-    CHECK (ids[4].ends_with (tmf::HarmonicCollectorOctaveHarmonicsParameterIdSuffixes::getPan (0)));
+    CHECK (ids[0] == tmf::HarmonicCollectorOctaveHarmonicsManager::getLevelParameterIdStatic (1));
+    CHECK (ids[2] == tmf::HarmonicCollectorOctaveHarmonicsManager::getPanParameterIdStatic (1));
+
+    for (int harmonicIndex = 0; harmonicIndex < tmf::maxBoundValue; ++harmonicIndex)
+    {
+        const auto levelIdIndex = static_cast<size_t> (3 + (harmonicIndex * 2));
+        CHECK (ids[levelIdIndex]
+               == tmf::HarmonicCollectorOctaveHarmonicsManager::getHarmonicLevelParameterIdStatic (1, harmonicIndex));
+        CHECK (ids[levelIdIndex + 1]
+               == tmf::HarmonicCollectorOctaveHarmonicsManager::getHarmonicPanParameterIdStatic (1, harmonicIndex));
+    }
+
     CHECK (std::find (ids.begin(), ids.end(), manager.getId() + tmf::HarmonicCollectorOctavesParameterIdSuffixes::lowBound) == ids.end());
     CHECK (std::find (ids.begin(), ids.end(), manager.getId() + tmf::HarmonicCollectorOctavesParameterIdSuffixes::highBound) == ids.end());
 

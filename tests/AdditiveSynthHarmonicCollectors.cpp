@@ -299,6 +299,7 @@ TEST_CASE ("Harmonic collector noise manager exposes one band collector paramete
     CHECK (ids[0] == tmf::HarmonicCollectorNoiseManager::getLevelParameterIdStatic (2));
     CHECK (ids[0].ends_with (tmf::BaseParameterIdSuffixes::level));
     CHECK (ids[1].ends_with (tmf::BaseParameterIdSuffixes::order));
+    CHECK (ids[2] == tmf::HarmonicCollectorNoiseManager::getPanParameterIdStatic (2));
     CHECK (ids[2].ends_with (tmf::BaseParameterIdSuffixes::pan));
 
     for (const auto& description : descriptions)

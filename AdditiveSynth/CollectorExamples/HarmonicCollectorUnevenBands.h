@@ -135,6 +135,12 @@ namespace tmf
             return getAudioParametersIdsStatic (bandIndex)[0];
         }
 
+        /// Returns one noise band's stereo pan parameter ID. Example: `getPanParameterIdStatic (2)`.
+        static string getPanParameterIdStatic (int bandIndex)
+        {
+            return getAudioParametersIdsStatic (bandIndex)[2];
+        }
+
         static vector<string> getAudioParametersIdsStatic (int bandIndex)
         {
             const auto id = getTypeId() + std::to_string (juce::jmax (0, bandIndex));

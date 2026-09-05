@@ -374,3 +374,36 @@ TEST_CASE ("Additive synth manager renders a configured harmonic collector", "[t
 
     CHECK (peak > 0.01f);
 }
+
+TEST_CASE ("Additive synth applies pitch wheel position when a note starts", "[tmf_additive_synth][voice]")
+{
+    const auto createVoice = []
+    {
+        auto voice = std::make_shared<tmf::VoiceInterceptorAdditiveSynth>();
+        auto collector = std::make_shared<tmf::HarmonicCollectorSine>();
+        collector->setParams ({ 1.0f, 0.0f, 1 });
+        voice->addHarmonicCollector (collector);
+        voice->prepareToPlay (44100.0, 128, 1);
+        return voice;
+    };
+
+    auto preBendVoice = createVoice();
+    auto postBendVoice = createVoice();
+    preBendVoice->startNote (60, 1.0f, 0);
+    postBendVoice->startNote (60, 1.0f, 8192);
+    postBendVoice->pitchWheelMoved (0);
+
+    juce::AudioBuffer<float> preBendBuffer { 1, 128 };
+    juce::AudioBuffer<float> postBendBuffer { 1, 128 };
+    preBendBuffer.clear();
+    postBendBuffer.clear();
+    preBendVoice->processBlock (preBendBuffer, 0, preBendBuffer.getNumSamples());
+    postBendVoice->processBlock (postBendBuffer, 0, postBendBuffer.getNumSamples());
+
+    for (int sample = 0; sample < preBendBuffer.getNumSamples(); ++sample)
+    {
+        INFO ("sample " << sample);
+        CHECK (preBendBuffer.getSample (0, sample)
+               == Catch::Approx (postBendBuffer.getSample (0, sample)).margin (0.000001f));
+    }
+}

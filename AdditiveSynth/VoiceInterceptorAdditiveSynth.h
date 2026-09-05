@@ -63,20 +63,12 @@ namespace tmf
 
         void startNote (int midiNoteNumber,
             float,
-            int) override
+            int currentPitchWheelPosition) override
         {
             jassert (!juce::approximatelyEqual (sampleRate, 0.0f));
             currentNoteNumber = midiNoteNumber;
 
-            if (pitchWheelValue != 0)
-            {
-                this->pitchWheelMoved (pitchWheelValue);
-            }
-            else
-            {
-                frequency = static_cast<float> (juce::MidiMessage::getMidiNoteInHertz (midiNoteNumber));
-                phaseIncrement = (juce::MathConstants<float>::twoPi * frequency) / sampleRate;
-            }
+            pitchWheelMoved (currentPitchWheelPosition);
 
             needToRefreshWaveTable = true;
 

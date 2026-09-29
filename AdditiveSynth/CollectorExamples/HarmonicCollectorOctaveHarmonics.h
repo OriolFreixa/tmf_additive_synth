@@ -253,6 +253,12 @@ namespace tmf
             return getInstanceIdStatic (instanceNumber) + BaseParameterIdSuffixes::pan;
         }
 
+        /// Returns the collector order parameter ID. Example: `getOrderParameterIdStatic (0)`.
+        static string getOrderParameterIdStatic (int instanceNumber)
+        {
+            return getInstanceIdStatic (instanceNumber) + BaseParameterIdSuffixes::order;
+        }
+
         /// Returns one harmonic gain parameter ID. Example: `getHarmonicLevelParameterIdStatic (0, 2)`.
         static string getHarmonicLevelParameterIdStatic (int instanceNumber, int harmonicIndex)
         {
@@ -338,11 +344,6 @@ namespace tmf
         static string getInstanceIdStatic (int instanceNumber)
         {
             return getTypeId() + std::to_string (juce::jmax (0, instanceNumber));
-        }
-
-        static string getOrderParameterIdStatic (int instanceNumber)
-        {
-            return getInstanceIdStatic (instanceNumber) + BaseParameterIdSuffixes::order;
         }
 
         HarmonicCollectorOctaveHarmonicsParams harmonicParams;

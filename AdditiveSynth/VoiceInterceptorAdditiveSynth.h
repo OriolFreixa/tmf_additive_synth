@@ -106,6 +106,11 @@ namespace tmf
                 frequency = static_cast<float> (juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber)) - hzPerCent * cents;
                 phaseIncrement = (juce::MathConstants<float>::twoPi * frequency) / sampleRate;
             }
+
+            // The packed-spectrum cutoff is Nyquist / frequency. Retuning playback
+            // without rebuilding leaves partials that have crossed Nyquist in the
+            // table, and a downward bend keeps the tighter cutoff of the old pitch.
+            markWavetableAsNeedsRefresh();
         }
 
         void prepareToPlay (double newSampleRate, int, int numOutputChannels) override

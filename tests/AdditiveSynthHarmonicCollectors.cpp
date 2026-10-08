@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <vector>
 
 namespace
 {
@@ -21,6 +22,36 @@ namespace
             ids.push_back (description.id);
 
         return ids;
+    }
+
+    /// Records the Nyquist-capped table size passed into each collector refresh.
+    class HarmonicCutoffProbe : public tmf::AdditiveSynthHarmonicCollector
+    {
+    public:
+        void collectHarmonics (juce::AudioBuffer<float>&, size_t dataSize) override
+        {
+            cutoffs.push_back (dataSize);
+        }
+
+        std::vector<size_t> cutoffs;
+    };
+
+    size_t cutoffForPitchWheel (int pitchWheelPosition)
+    {
+        auto probe = std::make_shared<HarmonicCutoffProbe>();
+        probe->setParams ({ 1.0f, 0.0f, 1 });
+
+        tmf::VoiceInterceptorAdditiveSynth voice;
+        voice.addHarmonicCollector (probe);
+        voice.prepareToPlay (44100.0, 128, 2);
+        voice.startNote (60, 1.0f, pitchWheelPosition);
+
+        juce::AudioBuffer<float> buffer { 2, 32 };
+        buffer.clear();
+        voice.processBlock (buffer, 0, buffer.getNumSamples());
+
+        REQUIRE (probe->cutoffs.size() == 1);
+        return probe->cutoffs.front();
     }
 }
 
@@ -405,4 +436,34 @@ TEST_CASE ("Additive synth applies pitch wheel position when a note starts", "[t
         CHECK (preBendBuffer.getSample (0, sample)
                == Catch::Approx (postBendBuffer.getSample (0, sample)).margin (0.000001f));
     }
+}
+
+TEST_CASE ("Pitch bends refresh the wavetable harmonic cutoff", "[tmf_additive_synth][voice]")
+{
+    auto probe = std::make_shared<HarmonicCutoffProbe>();
+    probe->setParams ({ 1.0f, 0.0f, 1 });
+
+    tmf::VoiceInterceptorAdditiveSynth voice;
+    voice.addHarmonicCollector (probe);
+    voice.prepareToPlay (44100.0, 128, 2);
+    voice.startNote (60, 1.0f, 8192);
+
+    juce::AudioBuffer<float> buffer { 2, 32 };
+    buffer.clear();
+    voice.processBlock (buffer, 0, buffer.getNumSamples());
+    voice.processBlock (buffer, 0, buffer.getNumSamples());
+    REQUIRE (probe->cutoffs.size() == 1);
+    const auto centerCutoff = probe->cutoffs.front();
+
+    voice.pitchWheelMoved (16383);
+    voice.processBlock (buffer, 0, buffer.getNumSamples());
+    REQUIRE (probe->cutoffs.size() == 2);
+    CHECK (probe->cutoffs.back() < centerCutoff);
+    CHECK (probe->cutoffs.back() == cutoffForPitchWheel (16383));
+
+    voice.pitchWheelMoved (0);
+    voice.processBlock (buffer, 0, buffer.getNumSamples());
+    REQUIRE (probe->cutoffs.size() == 3);
+    CHECK (probe->cutoffs.back() > centerCutoff);
+    CHECK (probe->cutoffs.back() == cutoffForPitchWheel (0));
 }

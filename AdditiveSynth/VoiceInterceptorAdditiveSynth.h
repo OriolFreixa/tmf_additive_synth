@@ -221,6 +221,7 @@ namespace tmf
                 if (found)
                 {
                     modParameterToCollector[id] = collector;
+                    return;
                 }
             }
         }

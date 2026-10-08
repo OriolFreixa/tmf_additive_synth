@@ -72,17 +72,12 @@ namespace tmf
         bool updateModTargetValue (juce::String parameterID, float value) override
         {
             jassert (id != "");
-            if (!parameterID.startsWith (id))
-            {
-                return false; // Not a parameter of this collector
-            }
-
-            // Optimized for: if (parameterID == (String) (id + HarmonicCollectorOctavesParameterIdSuffixes::lowBound))
-            if (parameterID.endsWith (HarmonicCollectorOctavesParameterIdSuffixes::lowBound))
+            // Match the full identity so collector IDs with shared prefixes remain independent.
+            if (parameterID == juce::String (id + HarmonicCollectorOctavesParameterIdSuffixes::lowBound))
             {
                 octaveModValues.lowBound = static_cast<int> (juce::jmap (value, -1.0f, 1.0f, static_cast<float> (-maxBoundValue), static_cast<float> (maxBoundValue)));
             }
-            else if (parameterID.endsWith (HarmonicCollectorOctavesParameterIdSuffixes::highBound))
+            else if (parameterID == juce::String (id + HarmonicCollectorOctavesParameterIdSuffixes::highBound))
             {
                 octaveModValues.highBound = static_cast<int> (juce::jmap (value, -1.0f, 1.0f, static_cast<float> (-maxBoundValue), static_cast<float> (maxBoundValue)));
             }
@@ -98,13 +93,10 @@ namespace tmf
         std::optional<float> getEffectiveModulationTargetPosition (
             const juce::String& parameterId) const noexcept override
         {
-            if (!parameterId.startsWith (id))
-                return std::nullopt;
-
-            if (parameterId.endsWith (HarmonicCollectorOctavesParameterIdSuffixes::lowBound))
+            if (parameterId == juce::String (id + HarmonicCollectorOctavesParameterIdSuffixes::lowBound))
                 return normalizedBoundPosition (lowBound);
 
-            if (parameterId.endsWith (HarmonicCollectorOctavesParameterIdSuffixes::highBound))
+            if (parameterId == juce::String (id + HarmonicCollectorOctavesParameterIdSuffixes::highBound))
                 return normalizedBoundPosition (highBound);
 
             return AdditiveSynthHarmonicCollector::getEffectiveModulationTargetPosition (parameterId);

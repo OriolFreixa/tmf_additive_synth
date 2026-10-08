@@ -89,25 +89,24 @@ namespace tmf
         virtual bool updateModTargetValue (juce::String paramid, float value)
         {
             jassert (id != "");
-            if (!paramid.startsWith (id))
-            {
-                return false; // Not a parameter of this collector
-            }
-
-            // Optimized for: if (paramid == (String) (id + BaseParameterIdSuffixes::level))
-            if (paramid.endsWith (BaseParameterIdSuffixes::level))
+            // Match the full identity so collector IDs with shared prefixes remain independent.
+            if (paramid == juce::String (id + BaseParameterIdSuffixes::level))
             {
                 modValues.level = value;
             }
-            else if (paramid.endsWith (BaseParameterIdSuffixes::order))
+            else if (paramid == juce::String (id + BaseParameterIdSuffixes::order))
             {
                 // We want to cover the whole range, so -(1000 - (-1)) to 1000 - (-1)
                 modValues.order = static_cast<int> (juce::jmap (value, -1.0f, 1.0f, -1001.0f, 1001.0f));
             }
-            else if (paramid.endsWith (BaseParameterIdSuffixes::pan))
+            else if (paramid == juce::String (id + BaseParameterIdSuffixes::pan))
             {
                 // We want to cover the whole range, so -(100 - (-100)) to 100 - (-100)
                 modValues.pan = juce::jmap (value, -1.0f, 1.0f, -200.0f, 200.0f);
+            }
+            else
+            {
+                return false;
             }
 
             doUpdateParameters();
@@ -119,16 +118,13 @@ namespace tmf
         virtual std::optional<float> getEffectiveModulationTargetPosition (
             const juce::String& parameterId) const noexcept
         {
-            if (!parameterId.startsWith (id))
-                return std::nullopt;
-
-            if (parameterId.endsWith (BaseParameterIdSuffixes::level))
+            if (parameterId == juce::String (id + BaseParameterIdSuffixes::level))
                 return juce::jlimit (0.0f, 1.0f, level.getTargetValue());
 
-            if (parameterId.endsWith (BaseParameterIdSuffixes::pan))
+            if (parameterId == juce::String (id + BaseParameterIdSuffixes::pan))
                 return juce::jmap (juce::jlimit (-100.0f, 100.0f, pan.getTargetValue()), -100.0f, 100.0f, 0.0f, 1.0f);
 
-            if (parameterId.endsWith (BaseParameterIdSuffixes::order))
+            if (parameterId == juce::String (id + BaseParameterIdSuffixes::order))
                 return static_cast<float> (juce::jlimit (-1, 1000, order) + 1) / 1001.0f;
 
             return std::nullopt;

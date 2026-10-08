@@ -94,19 +94,16 @@ namespace tmf
         bool updateModTargetValue (juce::String parameterID, float value) override
         {
             jassert (id != "");
-            if (!parameterID.startsWith (id))
-                return false;
-
             for (int harmonicIndex = 0; harmonicIndex < maxBoundValue; ++harmonicIndex)
             {
-                if (parameterID.endsWith (HarmonicCollectorOctaveHarmonicsParameterIdSuffixes::getLevel (harmonicIndex)))
+                if (parameterID == juce::String (id + HarmonicCollectorOctaveHarmonicsParameterIdSuffixes::getLevel (harmonicIndex)))
                 {
                     harmonicModValues.levels[static_cast<size_t> (harmonicIndex)] = value;
                     doUpdateHarmonicParameters();
                     return true;
                 }
 
-                if (parameterID.endsWith (HarmonicCollectorOctaveHarmonicsParameterIdSuffixes::getPan (harmonicIndex)))
+                if (parameterID == juce::String (id + HarmonicCollectorOctaveHarmonicsParameterIdSuffixes::getPan (harmonicIndex)))
                 {
                     harmonicModValues.pans[static_cast<size_t> (harmonicIndex)] = juce::jmap (value, -1.0f, 1.0f, -200.0f, 200.0f);
                     doUpdateHarmonicParameters();
@@ -130,15 +127,12 @@ namespace tmf
         std::optional<float> getEffectiveModulationTargetPosition (
             const juce::String& parameterId) const noexcept override
         {
-            if (!parameterId.startsWith (id))
-                return std::nullopt;
-
             for (int harmonicIndex = 0; harmonicIndex < maxBoundValue; ++harmonicIndex)
             {
-                if (parameterId.endsWith (HarmonicCollectorOctaveHarmonicsParameterIdSuffixes::getLevel (harmonicIndex)))
+                if (parameterId == juce::String (id + HarmonicCollectorOctaveHarmonicsParameterIdSuffixes::getLevel (harmonicIndex)))
                     return getHarmonicLevel (harmonicIndex);
 
-                if (parameterId.endsWith (HarmonicCollectorOctaveHarmonicsParameterIdSuffixes::getPan (harmonicIndex)))
+                if (parameterId == juce::String (id + HarmonicCollectorOctaveHarmonicsParameterIdSuffixes::getPan (harmonicIndex)))
                     return juce::jmap (getHarmonicPan (harmonicIndex), -100.0f, 100.0f, 0.0f, 1.0f);
             }
 

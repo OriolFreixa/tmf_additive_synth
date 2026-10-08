@@ -9,7 +9,7 @@
 */
 #pragma once
 #include "AdditiveSynthHarmonicCollector.h"
-#include "tmf_intercept_synth/synth/SynthParameterDescription.h"
+#include "tmf_intercept_synth/synth/Interceptors/VoiceInterceptorManager.h"
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <memory>
 #include <string>
@@ -20,7 +20,7 @@ namespace tmf
     using namespace juce;
     using namespace std;
 
-    class HarmonicCollectorManagerInterface : public juce::AudioProcessorValueTreeState::Listener
+    class HarmonicCollectorManagerInterface : public VoiceInterceptorManagerWithParameters
     {
     public:
         HarmonicCollectorManagerInterface() = default;
@@ -88,25 +88,13 @@ namespace tmf
             return ids;
         }
 
-        virtual void parameterChanged (const juce::String& parameterID, float newValue) override
+        void applyParameterSnapshot (std::span<const float> values) override
         {
-            if (parameterID == (String) (uniqueId + BaseParameterIdSuffixes::level))
-            {
-                params.level = newValue;
-            }
-            else if (parameterID == (String) (uniqueId + BaseParameterIdSuffixes::order))
-            {
-                params.order = static_cast<int> (newValue);
-            }
-            else if (parameterID == (String) (uniqueId + BaseParameterIdSuffixes::pan))
-            {
-                params.pan = newValue;
-            }
-
-            for (auto& collector : harmonicCollectors)
-            {
-                collector->setParams (params);
-            }
+            jassert (values.size() == 3);
+            params = { values[0], values[2], static_cast<int> (values[1]) };
+            for (const auto& collector : harmonicCollectors)
+                if (collector != nullptr)
+                    collector->setParams (params);
         }
 
     protected:

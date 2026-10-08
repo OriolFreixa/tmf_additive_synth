@@ -9,9 +9,9 @@
 */
 
 #pragma once
-#include "tmf_intercept_synth/tmf_intercept_synth.h"
-#include "VoiceInterceptorAdditiveSynth.h"
 #include "AdditiveSynthHarmonicCollectorManager.h"
+#include "VoiceInterceptorAdditiveSynth.h"
+#include "tmf_intercept_synth/tmf_intercept_synth.h"
 #include <map>
 
 namespace tmf
@@ -38,13 +38,11 @@ namespace tmf
             if (voiceIndex >= voiceInterceptors.size())
             {
                 voiceInterceptors.resize (voiceIndex + 1);
-
             }
             if (!voiceInterceptors[voiceIndex])
             {
                 voiceInterceptors[voiceIndex] = make_shared<VoiceInterceptorAdditiveSynth>();
                 addCollectorsToInterceptor (voiceInterceptors[voiceIndex], voiceIndex);
-
             }
             return dynamic_pointer_cast<VoiceInterceptor> (voiceInterceptors[voiceIndex]);
         }
@@ -54,27 +52,26 @@ namespace tmf
             return parameterDescriptions;
         }
 
-        void parameterChanged (const juce::String& parameterID, float newValue) override
+        void applyParameterSnapshot (std::span<const float> values) override
         {
-            auto owner = parameterOwners.find (parameterID.toStdString());
-            jassert (owner != parameterOwners.end());
-            if (owner == parameterOwners.end())
-                return;
-
-            owner->second->parameterChanged (parameterID, newValue);
-            for (auto interceptor : voiceInterceptors)
+            jassert (values.size() == parameterDescriptions.size());
+            size_t offset = 0;
+            for (size_t index = 0; index < harmonicCollectorManagers.size(); ++index)
             {
+                const auto count = collectorParameterCounts[index];
+                harmonicCollectorManagers[index]->applyParameterSnapshot (values.subspan (offset, count));
+                offset += count;
+            }
+            for (const auto& interceptor : voiceInterceptors)
+            {
+                if (interceptor == nullptr)
+                    continue;
                 interceptor->markWavetableAsNeedsRefresh();
-
-                if (parameterID.contains (BaseParameterIdSuffixes::order))
-                {
-                    interceptor->markCollectorsAsNeedOrder();
-                }
+                interceptor->markCollectorsAsNeedOrder();
             }
         }
 
     private:
-
         void addCollector (shared_ptr<HarmonicCollectorManagerInterface> collector)
         {
             auto descriptions = collector->getParameterDescriptions();
@@ -82,6 +79,7 @@ namespace tmf
                 registerCollectorParameter (description, collector);
 
             harmonicCollectorManagers.push_back (collector);
+            collectorParameterCounts.push_back (descriptions.size());
         }
 
         void registerCollectorParameter (SynthParameterDescription description,
@@ -89,7 +87,7 @@ namespace tmf
         {
             auto inserted = parameterOwners.emplace (description.id, collector);
             jassert (inserted.second);
-            if (! inserted.second)
+            if (!inserted.second)
                 return;
 
             description.groupPath.insert (description.groupPath.begin(),
@@ -109,5 +107,6 @@ namespace tmf
         vector<shared_ptr<HarmonicCollectorManagerInterface>> harmonicCollectorManagers;
         vector<SynthParameterDescription> parameterDescriptions;
         map<string, shared_ptr<HarmonicCollectorManagerInterface>> parameterOwners;
+        vector<size_t> collectorParameterCounts;
     };
 }

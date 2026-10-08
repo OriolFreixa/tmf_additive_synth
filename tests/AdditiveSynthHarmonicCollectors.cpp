@@ -203,7 +203,7 @@ TEST_CASE ("Harmonic collector manager applies parameter changes to active colle
     REQUIRE (collector != nullptr);
 
     const auto ids = getDescriptionIds (manager.getParameterDescriptions());
-    manager.parameterChanged (juce::String { ids[1] }, 7.0f);
+    manager.setParameterValueForSetup (juce::String { ids[1] }, 7.0f);
 
     CHECK (manager.getOrder() == 7);
     CHECK (collector->getOrder() == 7);
@@ -253,7 +253,7 @@ TEST_CASE ("Additive synth manager routes parameter changes to collector manager
 
     tmf::VoiceInterceptorAdditiveSynthManager additiveManager (
         std::vector<std::shared_ptr<tmf::HarmonicCollectorManagerInterface>> { collectorManager });
-    additiveManager.parameterChanged (orderId, 9.0f);
+    additiveManager.setParameterValueForSetup (orderId, 9.0f);
 
     CHECK (collectorManager->getOrder() == 9);
 }
@@ -328,7 +328,7 @@ TEST_CASE ("Harmonic collector noise manager uses the level parameter as collect
     collector->collectHarmonics (buffer, static_cast<size_t> (buffer.getNumSamples()));
     CHECK (buffer.getSample (0, 66) == 0.0f);
 
-    manager.parameterChanged (juce::String { descriptions[0].id }, 1.0f);
+    manager.setParameterValueForSetup (juce::String { descriptions[0].id }, 1.0f);
 
     buffer.clear();
     collector->collectHarmonics (buffer, static_cast<size_t> (buffer.getNumSamples()));
@@ -354,8 +354,8 @@ TEST_CASE ("Additive synth manager renders a configured harmonic collector", "[t
 {
     auto collectorManager = std::make_shared<tmf::HarmonicCollectorManager<tmf::HarmonicCollectorSine>>();
     const auto ids = getDescriptionIds (collectorManager->getParameterDescriptions());
-    collectorManager->parameterChanged (juce::String { ids[0] }, 1.0f);
-    collectorManager->parameterChanged (juce::String { ids[1] }, 1.0f);
+    collectorManager->setParameterValueForSetup (juce::String { ids[0] }, 1.0f);
+    collectorManager->setParameterValueForSetup (juce::String { ids[1] }, 1.0f);
 
     tmf::VoiceInterceptorAdditiveSynthManager manager { { collectorManager } };
     auto voice = std::dynamic_pointer_cast<tmf::VoiceInterceptorAdditiveSynth> (manager.getOrCreateVoiceInterceptor (0));
@@ -377,8 +377,7 @@ TEST_CASE ("Additive synth manager renders a configured harmonic collector", "[t
 
 TEST_CASE ("Additive synth applies pitch wheel position when a note starts", "[tmf_additive_synth][voice]")
 {
-    const auto createVoice = []
-    {
+    const auto createVoice = [] {
         auto voice = std::make_shared<tmf::VoiceInterceptorAdditiveSynth>();
         auto collector = std::make_shared<tmf::HarmonicCollectorSine>();
         collector->setParams ({ 1.0f, 0.0f, 1 });

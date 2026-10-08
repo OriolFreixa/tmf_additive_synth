@@ -41,7 +41,7 @@ namespace tmf
 
             for (size_t harmonic = 1; harmonic <= highestHarmonic; ++harmonic)
             {
-                if (! isHarmonicInBand (static_cast<int> (harmonic)))
+                if (!isHarmonicInBand (static_cast<int> (harmonic)))
                     continue;
 
                 const auto realIndex = harmonic * 2u;
@@ -104,7 +104,7 @@ namespace tmf
             if (index >= harmonicCollectors.size())
                 harmonicCollectors.resize (index + 1);
 
-            if (! harmonicCollectors[index])
+            if (!harmonicCollectors[index])
             {
                 auto newCollector = make_shared<HarmonicCollectorUnevenBands> (bandIndex, firstHarmonic, lastHarmonic);
                 newCollector->setParams (params);
@@ -115,19 +115,13 @@ namespace tmf
             return dynamic_pointer_cast<AdditiveSynthHarmonicCollector> (harmonicCollectors[index]);
         }
 
-        void parameterChanged (const juce::String& parameterID, float newValue) override
+        void applyParameterSnapshot (std::span<const float> values) override
         {
-            const auto id = getId();
-
-            if (parameterID == (String) (id + BaseParameterIdSuffixes::level))
-                params.level = newValue;
-            else if (parameterID == (String) (id + BaseParameterIdSuffixes::order))
-                params.order = static_cast<int> (newValue);
-            else if (parameterID == (String) (id + BaseParameterIdSuffixes::pan))
-                params.pan = newValue;
-
-            for (auto& collector : harmonicCollectors)
-                collector->setParams (params);
+            jassert (values.size() == 3);
+            params = { values[0], values[2], static_cast<int> (values[1]) };
+            for (const auto& collector : harmonicCollectors)
+                if (collector != nullptr)
+                    collector->setParams (params);
         }
 
         static string getLevelParameterIdStatic (int bandIndex)

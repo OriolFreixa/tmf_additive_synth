@@ -10,7 +10,7 @@ This module implements additive-synthesis voice interceptors and harmonic collec
 
 Useful searches:
 - `rg -n "class VoiceInterceptorAdditiveSynth|processBlock|collectHarmonics|readWaveTable" AdditiveSynth`
-- `rg -n "HarmonicCollectorManager|getAudioParametersIds|getModTargetData|parameterChanged" AdditiveSynth tests`
+- `rg -n "HarmonicCollectorManager|getAudioParametersIds|getModTargetData|applyParameterSnapshot" AdditiveSynth tests`
 - `rg -n "FourierTransform|transformRealInverse|TMF_ADDITIVE_SYNTH_HAS_IPP" FFT.h CMakeLists.txt tests`
 
 ## File Index
@@ -21,7 +21,7 @@ Useful searches:
 
 Voice and managers:
 - `AdditiveSynth/VoiceInterceptorAdditiveSynth.h`: generator interceptor that builds/refreshes wavetables, renders samples, handles pitch wheel movement, tracks collectors, and receives modulation target updates.
-- `AdditiveSynth/VoiceInterceptorAdditiveSynthManager.h`: voice interceptor manager that owns collector managers, exposes parameter groups/IDs, forwards parameter changes, and wires collectors into active voices.
+- `AdditiveSynth/VoiceInterceptorAdditiveSynthManager.h`: voice interceptor manager that owns collector managers, exposes parameter groups/IDs, applies audio-thread collector snapshots, and wires collectors into active voices.
 - `AdditiveSynth/AdditiveSynthHarmonicCollector.h`: base collector interface and shared parameter/modulation handling for level, order, and pan.
 - `AdditiveSynth/AdditiveSynthHarmonicCollectorManager.h`: templated collector manager, parameter group creation, static ID helpers, mod target data, and per-voice collector storage.
 

@@ -190,30 +190,15 @@ namespace tmf
             return ids;
         }
 
-        virtual void parameterChanged (const juce::String& parameterID, float newValue) override
+        void applyParameterSnapshot (std::span<const float> values) override
         {
-            if (parameterID == (String) (getId() + HarmonicCollectorOctavesParameterIdSuffixes::lowBound))
-            {
-                paramsOctaves.lowBound = static_cast<int> (newValue);
-
-                for (auto& collector : harmonicCollectors)
-                {
+            jassert (values.size() == 5);
+            HarmonicCollectorManager::applyParameterSnapshot (values.first (3));
+            paramsOctaves.lowBound = static_cast<int> (values[3]);
+            paramsOctaves.highBound = static_cast<int> (values[4]);
+            for (const auto& collector : harmonicCollectors)
+                if (collector != nullptr)
                     collector->setParamsValues (paramsOctaves);
-                }
-            }
-            else if (parameterID == (String) (getId() + HarmonicCollectorOctavesParameterIdSuffixes::highBound))
-            {
-                paramsOctaves.highBound = static_cast<int> (newValue);
-
-                for (auto& collector : harmonicCollectors)
-                {
-                    collector->setParamsValues (paramsOctaves);
-                }
-            }
-            else
-            {
-                HarmonicCollectorManager::parameterChanged (parameterID, newValue);
-            }
         }
 
     private:

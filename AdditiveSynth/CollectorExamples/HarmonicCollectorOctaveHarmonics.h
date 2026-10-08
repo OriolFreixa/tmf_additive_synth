@@ -282,24 +282,19 @@ namespace tmf
             return static_cast<int> (harmonicNumber);
         }
 
-        void parameterChanged (const juce::String& parameterID, float newValue) override
+        void applyParameterSnapshot (std::span<const float> values) override
         {
-            const auto collectorId = getId();
-
-            if (parameterID == (String) (collectorId + BaseParameterIdSuffixes::level))
-                params.level = newValue;
-            else if (parameterID == (String) (collectorId + BaseParameterIdSuffixes::order))
-                params.order = static_cast<int> (newValue);
-            else if (parameterID == (String) (collectorId + BaseParameterIdSuffixes::pan))
-                params.pan = newValue;
-            else
-                updateHarmonicParameter (parameterID, newValue);
-
-            for (auto& collector : harmonicCollectors)
+            jassert (values.size() == 3 + 2 * maxBoundValue);
+            params = { values[0], values[2], static_cast<int> (values[1]) };
+            for (size_t index = 0; index < static_cast<size_t> (maxBoundValue); ++index)
             {
-                if (!collector)
+                harmonicParams.levels[index] = values[3 + 2 * index];
+                harmonicParams.pans[index] = values[4 + 2 * index];
+            }
+            for (const auto& collector : harmonicCollectors)
+            {
+                if (collector == nullptr)
                     continue;
-
                 collector->setParams (params);
                 collector->setHarmonicParams (harmonicParams);
             }
@@ -309,26 +304,6 @@ namespace tmf
         string getDisplayName() const override
         {
             return "Octave Harmonics " + std::to_string (startIndex);
-        }
-
-        void updateHarmonicParameter (const juce::String& parameterID, float newValue)
-        {
-            const auto collectorId = getId();
-
-            for (int harmonicIndex = 0; harmonicIndex < maxBoundValue; ++harmonicIndex)
-            {
-                if (parameterID == (String) (collectorId + HarmonicCollectorOctaveHarmonicsParameterIdSuffixes::getLevel (harmonicIndex)))
-                {
-                    harmonicParams.levels[static_cast<size_t> (harmonicIndex)] = newValue;
-                    return;
-                }
-
-                if (parameterID == (String) (collectorId + HarmonicCollectorOctaveHarmonicsParameterIdSuffixes::getPan (harmonicIndex)))
-                {
-                    harmonicParams.pans[static_cast<size_t> (harmonicIndex)] = newValue;
-                    return;
-                }
-            }
         }
 
         int getHarmonicNumber (int harmonicIndex) const

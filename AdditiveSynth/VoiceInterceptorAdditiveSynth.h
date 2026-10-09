@@ -185,26 +185,20 @@ namespace tmf
 
         void updateModTargetValue (juce::String id, float value) override
         {
-            auto cachedCollector = modParameterToCollector.find (id);
+            const auto cachedCollector = modParameterToCollector.find (id);
             if (cachedCollector != modParameterToCollector.end())
             {
-                auto collector = cachedCollector->second;
-
-                auto hit = collector->updateModTargetValue (id, value);
-                jassert (hit);
-                juce::ignoreUnused (hit);
+                applyCollectorModulation (*cachedCollector->second, id, value);
+                return;
             }
-            else
+
+            for (const auto& collector : harmonicCollectors)
             {
-                searchCollectorAndUpdateModTargetValue (id, value);
+                if (!applyCollectorModulation (*collector, id, value))
+                    continue;
+                modParameterToCollector[id] = collector;
+                return;
             }
-
-            if (id.contains (BaseParameterIdSuffixes::order))
-            {
-                markCollectorsAsNeedOrder();
-            }
-
-            markWavetableAsNeedsRefresh();
         }
 
         std::optional<float> getEffectiveModulationTargetPosition (
@@ -218,17 +212,23 @@ namespace tmf
         }
 
     private:
-        void searchCollectorAndUpdateModTargetValue (juce::String id, float value)
+        bool applyCollectorModulation (AdditiveSynthHarmonicCollector& collector,
+            const juce::String& id,
+            float value)
         {
-            for (auto& collector : harmonicCollectors)
-            {
-                bool found = collector->updateModTargetValue (id, value);
-                if (found)
-                {
-                    modParameterToCollector[id] = collector;
-                    return;
-                }
-            }
+            const auto previousPosition = collector.getEffectiveModulationTargetPosition (id);
+            const auto previousOrder = collector.getOrder();
+            // Retain the raw offset even when clamping or quantization hides its effect.
+            if (!collector.updateModTargetValue (id, value))
+                return false;
+            const auto currentPosition = collector.getEffectiveModulationTargetPosition (id);
+            if (previousPosition && currentPosition && previousPosition == currentPosition)
+                return true;
+
+            if (previousOrder != collector.getOrder())
+                markCollectorsAsNeedOrder();
+            markWavetableAsNeedsRefresh();
+            return true;
         }
         bool collectHarmonics()
         {

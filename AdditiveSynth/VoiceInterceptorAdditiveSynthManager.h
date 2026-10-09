@@ -42,6 +42,7 @@ namespace tmf
             if (!voiceInterceptors[voiceIndex])
             {
                 voiceInterceptors[voiceIndex] = make_shared<VoiceInterceptorAdditiveSynth>();
+                voiceInterceptors[voiceIndex]->setTableRefreshVoiceIndex (voiceIndex);
                 addCollectorsToInterceptor (voiceInterceptors[voiceIndex], voiceIndex);
             }
             return dynamic_pointer_cast<VoiceInterceptor> (voiceInterceptors[voiceIndex]);

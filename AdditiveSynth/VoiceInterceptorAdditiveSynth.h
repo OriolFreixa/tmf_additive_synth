@@ -57,6 +57,12 @@ namespace tmf
             }
         }
 
+        /// Assigns a repeatable refresh phase before preparation. Example: manager voice one uses the half-period slot.
+        void setTableRefreshVoiceIndex (size_t voiceIndex)
+        {
+            tableRefreshVoiceIndex = voiceIndex;
+        }
+
         void addHarmonicCollector (shared_ptr<AdditiveSynthHarmonicCollector> collector)
         {
             jassert (juce::approximatelyEqual (sampleRate, 0.0f)); // Collectors must be created before starting the synth
@@ -145,6 +151,10 @@ namespace tmf
                 if (needToRefreshWaveTable && (tableRefreshCountdown == 0 || pitchRefreshPending || !hasPlaybackTable))
                     refreshWaveTable();
 
+                // Keep phased clocks advancing while clean, so later automation cannot synchronize every voice.
+                if (!needToRefreshWaveTable && tableRefreshCountdown == 0 && tableRefreshVoiceIndex != 0)
+                    tableRefreshCountdown = transitionLength;
+
                 const auto sliceSamples = tableRefreshCountdown > 0 ? std::min (numSamples, tableRefreshCountdown) : numSamples;
                 renderTableSpan (buffer, startSample, sliceSamples);
                 for (auto& collector : harmonicCollectors)
@@ -167,6 +177,7 @@ namespace tmf
                 orderCollectors();
 
             const auto firstTable = !hasPlaybackTable;
+            const auto previousCountdown = tableRefreshCountdown;
             auto keepRefreshing = collectHarmonics();
             generateWaveTable();
             installGeneratedWaveTable();
@@ -174,7 +185,12 @@ namespace tmf
             needToRefreshWaveTable = keepRefreshing;
             // Coalesce control ticks while retaining the newest collector targets.
             // A full fade interval bounds FFT work independently of host subdivisions.
-            tableRefreshCountdown = firstTable ? 0 : transitionLength;
+            // Urgent pitch rebuilds retain the periodic deadline instead of synchronizing all voices again.
+            const auto retainDeadline = tableRefreshVoiceIndex != 0 && previousCountdown > 0;
+            const auto initialDelay = initialTableRefreshDelay();
+            // A smoothing first table must wait a full interval rather than rebuilding on the next host slice.
+            tableRefreshCountdown = firstTable ? (initialDelay == 0 && keepRefreshing ? transitionLength : initialDelay)
+                                               : (retainDeadline ? previousCountdown : transitionLength);
         }
 
         void markCollectorsAsNeedOrder()
@@ -252,18 +268,42 @@ namespace tmf
     private:
         void renderTableSpan (juce::AudioBuffer<float>& buffer, int startSample, int numSamples)
         {
-            // Share phase and fade progress across channels to preserve stereo alignment.
+            const auto channels = std::min (2, buffer.getNumChannels());
+            float* output[2] { channels > 0 ? buffer.getWritePointer (0, startSample) : nullptr, channels > 1 ? buffer.getWritePointer (1, startSample) : nullptr };
+            const float* target[2] { waveTableBuffer.getReadPointer (0), waveTableBuffer.getReadPointer (1) };
+            const float* source[2] { transitionSourceTable.getReadPointer (0), transitionSourceTable.getReadPointer (1) };
+            // Share phase, interpolation indices and fade progress across both channels and tables.
             for (int sample = 0; sample < numSamples; ++sample)
             {
-                const auto blend = static_cast<float> (transitionSample) / static_cast<float> (transitionLength);
-                for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
-                    buffer.getWritePointer (channel, startSample)[sample] += getTransitionSample (phase, channel, blend);
-
-                transitionSample = std::min (transitionLength, transitionSample + 1);
+                const double position = phase / radiantsPerSample;
+                const int first = static_cast<int> (position);
+                const int second = (first + 1) % waveTableSize;
+                const double fraction = position - first;
+                jassert (first >= 0 && first < waveTableSize);
+                const bool fading = transitionSample < transitionLength;
+                const float blend = fading ? static_cast<float> (transitionSample) / static_cast<float> (transitionLength) : 1.0f;
+                for (int channel = 0; channel < channels; ++channel)
+                {
+                    const float next = static_cast<float> (target[channel][first] * (1.0 - fraction) + target[channel][second] * fraction);
+                    const float previous = fading ? static_cast<float> (source[channel][first] * (1.0 - fraction) + source[channel][second] * fraction) : next;
+                    output[channel][sample] += fading ? previous + blend * (next - previous) : next;
+                }
+                transitionSample += fading ? 1 : 0;
                 phase += phaseIncrement;
                 if (phase >= juce::MathConstants<float>::twoPi)
                     phase -= juce::MathConstants<float>::twoPi;
             }
+        }
+
+        int initialTableRefreshDelay() const
+        {
+            // Bit reversal spreads the first 2, 4, 8, ... voices evenly without requiring a fixed voice count.
+            double fraction = 0.0, place = 0.5;
+            for (auto index = tableRefreshVoiceIndex; index != 0; index >>= 1, place *= 0.5)
+                fraction += static_cast<double> (index & 1u) * place;
+            if (tableRefreshVoiceIndex == 0)
+                return 0;
+            return juce::jlimit (1, transitionLength, static_cast<int> (std::round (fraction * transitionLength)));
         }
 
         bool applyCollectorModulation (AdditiveSynthHarmonicCollector& collector,
@@ -354,41 +394,6 @@ namespace tmf
             }
         }
 
-        float getTransitionSample (float samplePhase, int channel, float blend) const
-        {
-            const auto target = getWaveSample (waveTableBuffer, samplePhase, channel);
-            if (transitionSample == transitionLength)
-                return target;
-            const auto source = getWaveSample (transitionSourceTable, samplePhase, channel);
-            return source + blend * (target - source);
-        }
-
-        static float getWaveSample (const juce::AudioBuffer<float>& table, float samplePhase, int channel)
-        {
-            jassert (juce::MathConstants<float>::twoPi >= samplePhase);
-            jassert (samplePhase >= 0);
-            double sample = samplePhase / radiantsPerSample;
-            auto waveTable = table.getReadPointer (channel);
-
-            auto firstSample = static_cast<int> (sample);
-            double sampleDecimal = sample - firstSample;
-            int secondSample = firstSample + 1;
-            if (secondSample == waveTableSize)
-                secondSample = 0;
-
-            // Read the corresponding values
-            jassert (firstSample >= 0 && firstSample < waveTableSize);
-            float firstSampleValue = waveTable[firstSample];
-
-            jassert (secondSample >= 0 && secondSample < waveTableSize);
-            float secondSampleValue = waveTable[secondSample];
-
-            // Interpolate the two obtained values
-            auto sampleValue = static_cast<float> (firstSampleValue * (1.0 - sampleDecimal) + secondSampleValue * sampleDecimal);
-
-            return sampleValue;
-        }
-
         int currentNoteNumber;
         float phase, phaseIncrement;
         float frequency;
@@ -399,6 +404,7 @@ namespace tmf
         juce::AudioBuffer<float> waveTableBuffer;
         juce::AudioBuffer<float> transitionSourceTable;
         juce::AudioBuffer<float> generatedWaveTable;
+        size_t tableRefreshVoiceIndex = 0;
         int tableRefreshCountdown = 0;
         int transitionLength = 1;
         int transitionSample = 1;

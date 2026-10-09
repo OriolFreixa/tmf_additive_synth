@@ -91,6 +91,25 @@ namespace tmf
             doUpdateHarmonicParameters();
         }
 
+        /// Binds a harmonic by numeric index. Example: the last harmonic costs the same as the first at runtime.
+        std::optional<ModulationTargetBinding> bindModulationTarget (const juce::String& parameterId) override
+        {
+            for (int index = 0; index < maxBoundValue; ++index)
+            {
+                if (parameterId == juce::String (id + HarmonicCollectorOctaveHarmonicsParameterIdSuffixes::getLevel (index)))
+                    return ModulationTargetBinding {
+                        [this, index] (float value) { harmonicModValues.levels[static_cast<size_t> (index)] = value; doUpdateHarmonicParameters(); },
+                        [this, index] { return std::optional<float> { getHarmonicLevel (index) }; }
+                    };
+                if (parameterId == juce::String (id + HarmonicCollectorOctaveHarmonicsParameterIdSuffixes::getPan (index)))
+                    return ModulationTargetBinding {
+                        [this, index] (float value) { harmonicModValues.pans[static_cast<size_t> (index)] = value * 200.0f; doUpdateHarmonicParameters(); },
+                        [this, index] { return std::optional<float> { juce::jmap (getHarmonicPan (index), -100.0f, 100.0f, 0.0f, 1.0f) }; }
+                    };
+            }
+            return AdditiveSynthHarmonicCollector::bindModulationTarget (parameterId);
+        }
+
         bool updateModTargetValue (juce::String parameterID, float value) override
         {
             jassert (id != "");

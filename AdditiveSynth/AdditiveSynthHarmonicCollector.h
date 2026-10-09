@@ -10,6 +10,7 @@
 
 #pragma once
 #include "juce_audio_basics/juce_audio_basics.h"
+#include "tmf_intercept_synth/synth/Interceptors/VoiceInterceptorWithModTargets.h"
 #include <optional>
 #include <string>
 namespace tmf
@@ -85,6 +86,32 @@ namespace tmf
         }
 
         virtual void setCurrentNote (int note) { currentNote = note; }
+
+        /// Resolves collector controls during setup. Example: a pan binding updates without constructing IDs.
+        virtual std::optional<ModulationTargetBinding> bindModulationTarget (const juce::String& parameterId)
+        {
+            if (parameterId == juce::String (id + BaseParameterIdSuffixes::level))
+                return ModulationTargetBinding {
+                    [this] (float value) { modValues.level = value; doUpdateParameters(); },
+                    [this] { return std::optional<float> { juce::jlimit (0.0f, 1.0f, level.getTargetValue()) }; }
+                };
+            if (parameterId == juce::String (id + BaseParameterIdSuffixes::pan))
+                return ModulationTargetBinding {
+                    [this] (float value) { modValues.pan = value * 200.0f; doUpdateParameters(); },
+                    [this] { return std::optional<float> { juce::jmap (pan.getTargetValue(), -100.0f, 100.0f, 0.0f, 1.0f) }; }
+                };
+            if (parameterId == juce::String (id + BaseParameterIdSuffixes::order))
+                return ModulationTargetBinding {
+                    [this] (float value) { modValues.order = static_cast<int> (juce::jmap (value, -1.0f, 1.0f, -1001.0f, 1001.0f)); doUpdateParameters(); },
+                    [this] { return std::optional<float> { static_cast<float> (order + 1) / 1001.0f }; }
+                };
+            if (!getEffectiveModulationTargetPosition (parameterId))
+                return std::nullopt;
+            return ModulationTargetBinding {
+                [this, parameterId] (float value) { updateModTargetValue (parameterId, value); },
+                [this, parameterId] { return getEffectiveModulationTargetPosition (parameterId); }
+            };
+        }
 
         virtual bool updateModTargetValue (juce::String paramid, float value)
         {

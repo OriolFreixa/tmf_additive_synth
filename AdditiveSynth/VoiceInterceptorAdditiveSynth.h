@@ -40,6 +40,8 @@ namespace tmf
               sampleRate (0.0f),
               pitchWheelValue (0.0f),
               waveTableBuffer (2, waveTableSize),
+              transitionSourceTable (2, waveTableSize),
+              generatedWaveTable (2, waveTableSize),
               fourierTransform (waveTableOrder),
               needToRefreshWaveTable (true),
               needToOrderCollectors (true)
@@ -67,6 +69,9 @@ namespace tmf
         {
             jassert (!juce::approximatelyEqual (sampleRate, 0.0f));
             currentNoteNumber = midiNoteNumber;
+            hasPlaybackTable = false;
+            tableRefreshCountdown = 0;
+            transitionSample = transitionLength;
 
             pitchWheelMoved (currentPitchWheelPosition);
 
@@ -81,6 +86,9 @@ namespace tmf
         void clearCurrentNote() override
         {
             currentNoteNumber = -1;
+            hasPlaybackTable = false;
+            tableRefreshCountdown = 0;
+            transitionSample = transitionLength;
             for (auto& collector : harmonicCollectors)
             {
                 collector->setCurrentNote (-1);
@@ -89,6 +97,9 @@ namespace tmf
 
         void pitchWheelMoved (int newPitchWheelValue) override
         {
+            // Retain immediate pitch refreshes so an upward bend cannot fade out
+            // partials that have already crossed the new Nyquist cutoff.
+            pitchRefreshPending = pitchRefreshPending || pitchWheelValue != newPitchWheelValue;
             pitchWheelValue = newPitchWheelValue;
             int numberOfSemitones = 2;
             float valuesPerCent = 8192.0f / ((float) numberOfSemitones * 100.0f);
@@ -116,6 +127,11 @@ namespace tmf
         void prepareToPlay (double newSampleRate, int, int numOutputChannels) override
         {
             sampleRate = static_cast<float> (newSampleRate);
+            transitionLength = std::max (1, static_cast<int> (std::round (newSampleRate * 0.01)));
+            transitionSample = transitionLength;
+            hasPlaybackTable = false;
+            tableRefreshCountdown = 0;
+            needToRefreshWaveTable = true;
             for (auto& collector : harmonicCollectors)
             {
                 collector->prepareToPlay (newSampleRate, numOutputChannels);
@@ -124,31 +140,20 @@ namespace tmf
 
         void processBlock (juce::AudioBuffer<float>& buffer, int startSample, int numSamples) override
         {
-            if (needToRefreshWaveTable)
+            while (numSamples > 0)
             {
-                refreshWaveTable();
-            }
+                if (needToRefreshWaveTable && (tableRefreshCountdown == 0 || pitchRefreshPending || !hasPlaybackTable))
+                    refreshWaveTable();
 
-            auto p = phase; // We reset the phase for each channel
-            for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
-            {
-                p = phase;
-                float* channelData = buffer.getWritePointer (channel, startSample);
-                for (int sample = 0; sample < numSamples; ++sample)
-                {
-                    channelData[sample] += getWaveSample (p, channel);
-                    p += phaseIncrement;
-                    if (p >= juce::MathConstants<float>::twoPi)
-                        p -= juce::MathConstants<float>::twoPi;
-                }
-            }
+                const auto sliceSamples = tableRefreshCountdown > 0 ? std::min (numSamples, tableRefreshCountdown) : numSamples;
+                renderTableSpan (buffer, startSample, sliceSamples);
+                for (auto& collector : harmonicCollectors)
+                    collector->advanceSamples (sliceSamples);
 
-            for (auto& collector : harmonicCollectors)
-            {
-                collector->advanceSamples (numSamples);
+                tableRefreshCountdown = std::max (0, tableRefreshCountdown - sliceSamples);
+                startSample += sliceSamples;
+                numSamples -= sliceSamples;
             }
-
-            phase = p;
         }
 
         void markWavetableAsNeedsRefresh()
@@ -161,9 +166,15 @@ namespace tmf
             if (needToOrderCollectors)
                 orderCollectors();
 
+            const auto firstTable = !hasPlaybackTable;
             auto keepRefreshing = collectHarmonics();
             generateWaveTable();
+            installGeneratedWaveTable();
+            pitchRefreshPending = false;
             needToRefreshWaveTable = keepRefreshing;
+            // Coalesce control ticks while retaining the newest collector targets.
+            // A full fade interval bounds FFT work independently of host subdivisions.
+            tableRefreshCountdown = firstTable ? 0 : transitionLength;
         }
 
         void markCollectorsAsNeedOrder()
@@ -181,6 +192,33 @@ namespace tmf
                 });
 
             needToOrderCollectors = false;
+        }
+
+        /// Binds a collector once before rendering. Example: matrix ticks call the cached harmonic setter directly.
+        ModulationTargetBinding bindModulationTarget (const juce::String& id) override
+        {
+            for (const auto& collector : harmonicCollectors)
+            {
+                // Full collector prefixes avoid scanning unrelated harmonics during graph setup.
+                if (!id.startsWith (juce::String (collector->getId()) + "_"))
+                    continue;
+                auto binding = collector->bindModulationTarget (id);
+                if (!binding)
+                    continue;
+                return { [this, collector, binding = *binding] (float value) {
+                            const auto previousPosition = binding.position();
+                            const auto previousOrder = collector->getOrder();
+                            // Retain raw offsets even when clamping hides their audible effect.
+                            binding.update (value);
+                            if (previousPosition && previousPosition == binding.position())
+                                return;
+                            if (previousOrder != collector->getOrder())
+                                markCollectorsAsNeedOrder();
+                            markWavetableAsNeedsRefresh();
+                        },
+                    binding->position };
+            }
+            return VoiceInterceptorWithModTargets::bindModulationTarget (id);
         }
 
         void updateModTargetValue (juce::String id, float value) override
@@ -212,6 +250,22 @@ namespace tmf
         }
 
     private:
+        void renderTableSpan (juce::AudioBuffer<float>& buffer, int startSample, int numSamples)
+        {
+            // Share phase and fade progress across channels to preserve stereo alignment.
+            for (int sample = 0; sample < numSamples; ++sample)
+            {
+                const auto blend = static_cast<float> (transitionSample) / static_cast<float> (transitionLength);
+                for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+                    buffer.getWritePointer (channel, startSample)[sample] += getTransitionSample (phase, channel, blend);
+
+                transitionSample = std::min (transitionLength, transitionSample + 1);
+                phase += phaseIncrement;
+                if (phase >= juce::MathConstants<float>::twoPi)
+                    phase -= juce::MathConstants<float>::twoPi;
+            }
+        }
+
         bool applyCollectorModulation (AdditiveSynthHarmonicCollector& collector,
             const juce::String& id,
             float value)
@@ -232,7 +286,7 @@ namespace tmf
         }
         bool collectHarmonics()
         {
-            waveTableBuffer.clear();
+            generatedWaveTable.clear();
             auto keepRefreshing = false;
 
             auto nyquistFrequency = static_cast<int> (sampleRate / 2.0f);
@@ -246,7 +300,7 @@ namespace tmf
                 // The first entries is reserved for DC component
                 // The second entry is for the last real nyquistHarmonic, which shouldn't be used
                 auto nyquistTableSize = (nyquistHarmonic * 2) + 2;
-                collector->collectHarmonics (waveTableBuffer, static_cast<size_t> (jmin (waveTableSize, nyquistTableSize)));
+                collector->collectHarmonics (generatedWaveTable, static_cast<size_t> (jmin (waveTableSize, nyquistTableSize)));
                 keepRefreshing = keepRefreshing || collector->waveTableRefreshNeeded();
             }
 
@@ -255,21 +309,66 @@ namespace tmf
 
         void generateWaveTable()
         {
-            for (int i = 0; i < waveTableBuffer.getNumChannels(); ++i)
+            for (int i = 0; i < generatedWaveTable.getNumChannels(); ++i)
             {
-                auto* channelData = waveTableBuffer.getWritePointer (i);
+                auto* channelData = generatedWaveTable.getWritePointer (i);
                 juce::FloatVectorOperations::multiply (channelData, waveTableVolumeMultipliers.data(), waveTableSize);
 
                 fourierTransform.transformRealInverse (channelData);
             }
         }
 
-        float getWaveSample (float samplePhase, int channel)
+        bool generatedTableMatchesTarget() const
+        {
+            for (int channel = 0; channel < 2; ++channel)
+                if (!std::equal (generatedWaveTable.getReadPointer (channel),
+                        generatedWaveTable.getReadPointer (channel) + waveTableSize,
+                        waveTableBuffer.getReadPointer (channel)))
+                    return false;
+            return true;
+        }
+
+        void installGeneratedWaveTable()
+        {
+            if (hasPlaybackTable && !pitchRefreshPending && generatedTableMatchesTarget())
+                return;
+
+            const auto crossfade = hasPlaybackTable && !pitchRefreshPending;
+            if (crossfade)
+                captureTransitionSource();
+            std::swap (waveTableBuffer, generatedWaveTable);
+            transitionSample = crossfade ? 0 : transitionLength;
+            hasPlaybackTable = true;
+        }
+
+        void captureTransitionSource()
+        {
+            // Retarget from the waveform currently audible, including an unfinished fade.
+            const auto blend = static_cast<float> (transitionSample) / static_cast<float> (transitionLength);
+            for (int channel = 0; channel < 2; ++channel)
+            {
+                auto* source = transitionSourceTable.getWritePointer (channel);
+                const auto* target = waveTableBuffer.getReadPointer (channel);
+                for (int sample = 0; sample < waveTableSize; ++sample)
+                    source[sample] = transitionSample == transitionLength ? target[sample] : source[sample] + blend * (target[sample] - source[sample]);
+            }
+        }
+
+        float getTransitionSample (float samplePhase, int channel, float blend) const
+        {
+            const auto target = getWaveSample (waveTableBuffer, samplePhase, channel);
+            if (transitionSample == transitionLength)
+                return target;
+            const auto source = getWaveSample (transitionSourceTable, samplePhase, channel);
+            return source + blend * (target - source);
+        }
+
+        static float getWaveSample (const juce::AudioBuffer<float>& table, float samplePhase, int channel)
         {
             jassert (juce::MathConstants<float>::twoPi >= samplePhase);
             jassert (samplePhase >= 0);
             double sample = samplePhase / radiantsPerSample;
-            auto waveTable = waveTableBuffer.getReadPointer (channel);
+            auto waveTable = table.getReadPointer (channel);
 
             auto firstSample = static_cast<int> (sample);
             double sampleDecimal = sample - firstSample;
@@ -298,6 +397,13 @@ namespace tmf
         int pitchWheelValue;
 
         juce::AudioBuffer<float> waveTableBuffer;
+        juce::AudioBuffer<float> transitionSourceTable;
+        juce::AudioBuffer<float> generatedWaveTable;
+        int tableRefreshCountdown = 0;
+        int transitionLength = 1;
+        int transitionSample = 1;
+        bool hasPlaybackTable = false;
+        bool pitchRefreshPending = false;
         FourierTransform fourierTransform;
         bool needToRefreshWaveTable;
 

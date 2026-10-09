@@ -165,3 +165,57 @@ TEST_CASE ("Static macro and zero-depth additive routes settle at the internal c
     fixture.synth.renderNextBlock (buffer, midi, 0, 1024);
     CHECK (collector->refreshCount == settledRefreshCount);
 }
+
+TEST_CASE ("Continuous modulation bounds table rebuilds independently of render subdivisions",
+    "[tmf_additive_synth][modulation-refresh]")
+{
+    const auto subdivision = GENERATE (1, 7, 32);
+    AdditiveRefreshFixture fixture;
+    for (int tick = 0; tick < 1500; ++tick)
+    {
+        const auto offset = tick % 2 == 0 ? 0.25f : -0.25f;
+        fixture.voice.updateModTargetValue ("REFRESH_LEVEL", offset);
+        CHECK (fixture.voice.getEffectiveModulationTargetPosition ("REFRESH_LEVEL") == Catch::Approx (0.5f + offset));
+        for (int rendered = 0; rendered < 32; rendered += subdivision)
+            fixture.voice.processBlock (fixture.buffer, 0, std::min (subdivision, 32 - rendered));
+    }
+    CHECK (fixture.collector->refreshCount == 101);
+    fixture.renderSlices (40);
+    CHECK (fixture.collector->lastRenderedLevel == Catch::Approx (0.25f));
+    const auto settledCount = fixture.collector->refreshCount;
+    fixture.renderSlices (40);
+    CHECK (fixture.collector->refreshCount == settledCount);
+}
+
+TEST_CASE ("Table scheduling survives large blocks and ignores zero-length renders",
+    "[tmf_additive_synth][modulation-refresh]")
+{
+    AdditiveRefreshFixture fixture;
+    fixture.voice.updateModTargetValue ("REFRESH_LEVEL", 0.25f);
+    fixture.voice.processBlock (fixture.buffer, 0, 0);
+    CHECK (fixture.collector->refreshCount == 1);
+    juce::AudioBuffer<float> largeBlock (2, 2000);
+    largeBlock.clear();
+    fixture.voice.processBlock (largeBlock, 17, 1960);
+    CHECK (fixture.collector->refreshCount == 3);
+    CHECK (fixture.collector->lastRenderedLevel == Catch::Approx (0.75f));
+    CHECK (largeBlock.getMagnitude (0, 0, 17) == 0.0f);
+    CHECK (largeBlock.getMagnitude (0, 1977, 23) == 0.0f);
+}
+
+TEST_CASE ("Cached additive bindings retain clamped offsets without redundant refreshes",
+    "[tmf_additive_synth][modulation-bindings]")
+{
+    AdditiveRefreshFixture fixture;
+    const auto binding = fixture.voice.bindModulationTarget ("REFRESH_LEVEL");
+    binding.update (0.75f);
+    fixture.renderSlices (20);
+    const auto settledRefreshCount = fixture.collector->refreshCount;
+    binding.update (0.6f);
+    fixture.renderSlices (20);
+    CHECK (fixture.collector->refreshCount == settledRefreshCount);
+    fixture.collector->setParams ({ 0.1f, 0.0f, 1 });
+    fixture.voice.markWavetableAsNeedsRefresh();
+    fixture.renderSlices (20);
+    CHECK (fixture.collector->lastRenderedLevel == Catch::Approx (0.7f));
+}

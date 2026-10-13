@@ -13,6 +13,7 @@
 #include "AdditiveSynthHarmonicCollector.h"
 #include "tmf_intercept_synth/tmf_intercept_synth.h"
 #include <algorithm>
+#include <cmath>
 
 static constexpr int waveTableOrder = 11;
 static constexpr int waveTableSize = 1 << waveTableOrder;
@@ -107,28 +108,23 @@ namespace tmf
             // partials that have already crossed the new Nyquist cutoff.
             pitchRefreshPending = pitchRefreshPending || pitchWheelValue != newPitchWheelValue;
             pitchWheelValue = newPitchWheelValue;
-            int numberOfSemitones = 2;
-            float valuesPerCent = 8192.0f / ((float) numberOfSemitones * 100.0f);
-            newPitchWheelValue -= 8192; //We center the pitchWheelValue
-            float cents = static_cast<float> (newPitchWheelValue) / valuesPerCent;
-            if (newPitchWheelValue > 0)
-            {
-                auto hzPerCent = static_cast<float> ((juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber + 1) - juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber)) / 100.0);
-                frequency = static_cast<float> (juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber)) + hzPerCent * cents;
-                phaseIncrement = (juce::MathConstants<float>::twoPi * frequency) / sampleRate;
-            }
-            else
-            {
-                auto hzPerCent = static_cast<float> ((juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber - 1) - juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber)) / 100.0);
-                frequency = static_cast<float> (juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber)) - hzPerCent * cents;
-                phaseIncrement = (juce::MathConstants<float>::twoPi * frequency) / sampleRate;
-            }
+            constexpr int numberOfSemitones = 2;
+            const auto baseFrequency = static_cast<float> (juce::MidiMessage::getMidiNoteInHertz (currentNoteNumber));
+            const auto normalizedBend = (static_cast<float> (newPitchWheelValue) - 8192.0f) / 8192.0f;
+            const auto semitones = normalizedBend * static_cast<float> (numberOfSemitones);
+            // Equal temperament: linear Hz steps between adjacent semitones under-stretch
+            // the +2 range (~+194.5¢) and over-stretch the −2 range (~−206.1¢).
+            frequency = baseFrequency * std::pow (2.0f, semitones / 12.0f);
+            phaseIncrement = (juce::MathConstants<float>::twoPi * frequency) / sampleRate;
 
             // The packed-spectrum cutoff is Nyquist / frequency. Retuning playback
             // without rebuilding leaves partials that have crossed Nyquist in the
             // table, and a downward bend keeps the tighter cutoff of the old pitch.
             markWavetableAsNeedsRefresh();
         }
+
+        /// Playback frequency after pitch bend. Example: full-up wheel is base * 2^(2/12).
+        float getFrequency() const noexcept { return frequency; }
 
         void prepareToPlay (double newSampleRate, int, int numOutputChannels) override
         {

@@ -467,3 +467,39 @@ TEST_CASE ("Pitch bends refresh the wavetable harmonic cutoff", "[tmf_additive_s
     CHECK (probe->cutoffs.back() > centerCutoff);
     CHECK (probe->cutoffs.back() == cutoffForPitchWheel (0));
 }
+
+TEST_CASE ("Pitch bend uses equal-temperament exponential tuning", "[tmf_additive_synth][voice]")
+{
+    constexpr int midiNote = 60;
+    constexpr float pitchBendSemitoneRange = 2.0f;
+    const auto baseFrequency = static_cast<float> (juce::MidiMessage::getMidiNoteInHertz (midiNote));
+
+    const auto frequencyForWheel = [&] (int pitchWheelPosition) {
+        tmf::VoiceInterceptorAdditiveSynth voice;
+        voice.prepareToPlay (44100.0, 128, 1);
+        voice.startNote (midiNote, 1.0f, pitchWheelPosition);
+        return voice.getFrequency();
+    };
+
+    const auto centsFromBase = [&] (float frequency) {
+        return 1200.0f * std::log2 (frequency / baseFrequency);
+    };
+
+    const auto expectedFrequency = [&] (int pitchWheelPosition) {
+        const auto normalizedBend = (static_cast<float> (pitchWheelPosition) - 8192.0f) / 8192.0f;
+        const auto semitones = normalizedBend * pitchBendSemitoneRange;
+        return baseFrequency * std::pow (2.0f, semitones / 12.0f);
+    };
+
+    CHECK (frequencyForWheel (8192) == Catch::Approx (baseFrequency).margin (0.0001f));
+    CHECK (frequencyForWheel (16383) == Catch::Approx (expectedFrequency (16383)).margin (0.0001f));
+    CHECK (frequencyForWheel (0) == Catch::Approx (expectedFrequency (0)).margin (0.0001f));
+
+    // Full-range bend must land on ±200¢, not the old linear ±194.5 / −206.1¢ error.
+    CHECK (centsFromBase (frequencyForWheel (16383)) == Catch::Approx (200.0f).margin (0.05f));
+    CHECK (centsFromBase (frequencyForWheel (0)) == Catch::Approx (-200.0f).margin (0.05f));
+    CHECK (frequencyForWheel (16383)
+           == Catch::Approx (static_cast<float> (juce::MidiMessage::getMidiNoteInHertz (midiNote + 2))).margin (0.05f));
+    CHECK (frequencyForWheel (0)
+           == Catch::Approx (static_cast<float> (juce::MidiMessage::getMidiNoteInHertz (midiNote - 2))).margin (0.05f));
+}

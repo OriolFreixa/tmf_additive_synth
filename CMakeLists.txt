@@ -155,7 +155,9 @@ endif()
 
 get_target_property(TMF_ADDITIVE_SYNTH_MODULE_JUCE_HEADERS tmf_additive_synth INTERFACE_JUCE_MODULE_HEADERS)
 if(TMF_ADDITIVE_SYNTH_MODULE_JUCE_HEADERS)
-    list(REMOVE_ITEM TMF_ADDITIVE_SYNTH_MODULE_JUCE_HEADERS ${TMF_ADDITIVE_SYNTH_TEST_HEADER_FILES})
+    # Test .cpp files are classified as module "headers" by juce_add_module; remove
+    # them so later _juce_fixup_module_source_groups does not mark them HEADER_FILE_ONLY.
+    list(REMOVE_ITEM TMF_ADDITIVE_SYNTH_MODULE_JUCE_HEADERS ${TMF_ADDITIVE_SYNTH_TEST_FILES})
     set_target_properties(tmf_additive_synth PROPERTIES
         INTERFACE_JUCE_MODULE_HEADERS "${TMF_ADDITIVE_SYNTH_MODULE_JUCE_HEADERS}")
 endif()

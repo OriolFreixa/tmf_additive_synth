@@ -29,8 +29,14 @@ Collector examples:
 - `AdditiveSynth/CollectorExamples/HarmonicCollectorSine.h`: first-harmonic sine collector.
 - `AdditiveSynth/CollectorExamples/HarmonicCollectorOctaves.h`: octave-based collector with low/high bounds and a specialized manager.
 - `AdditiveSynth/CollectorExamples/HarmonicCollectorEnFifther.h`: fifth-based harmonic collector.
+- `AdditiveSynth/HarmonicCollectorWithControls.h`: data-driven collector (`ControlledCollectorDefinition`) with extra controls beyond level/order/pan, spectrum caching, and modulation targets. Shapes and Parity are built on it.
+- `AdditiveSynth/CollectorExamples/ShapeSpectra.h`, `HarmonicCollectorShapes.h`: Triangle (Flatten, Base, Curve), Saw (Flatten, Curve) and Square (Width, Edge) collectors; ids `ShapeTriangle|ShapeSaw|ShapeSquare`.
+- `AdditiveSynth/CollectorExamples/ParitySpectrum.h`, `HarmonicCollectorParity.h`: Uneven/Even collector (Low H, Low Slope, High H, High Slope); ids `ParityUneven|ParityEven`.
+- `AdditiveSynth/AdditiveWavetableMath.h`: wavetable constants, 1/h multipliers, and the mid-channel saturation (`saturateStereoHarmonics`) that keeps overlapping collectors at or below 1 per harmonic.
+- `AdditiveSynth/AdditiveBaseWave.h`: renders the base wave from collector managers and a parameter reader without a voice, so the UI previews exactly what the synth builds.
 
 Tests:
+- `tests/AdditiveShapeAndParityCollectors.cpp`: shape and parity spectra, saturation, caching, modulation, and `AdditiveBaseWave` behavior.
 - `tests/AdditiveSynthHarmonicCollectors.cpp`: collector small-table tolerance, FFT bounds/amplitude behavior, manager parameter/mod target exposure, parameter propagation, and additive voice rendering.
 
 ## Dependency Notes

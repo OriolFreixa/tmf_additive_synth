@@ -11,13 +11,10 @@
 #pragma once
 #include "../FFT.h"
 #include "AdditiveSynthHarmonicCollector.h"
+#include "AdditiveWavetableMath.h"
 #include "tmf_intercept_synth/tmf_intercept_synth.h"
 #include <algorithm>
 #include <cmath>
-
-static constexpr int waveTableOrder = 11;
-static constexpr int waveTableSize = 1 << waveTableOrder;
-static constexpr double radiantsPerSample = juce::MathConstants<double>::twoPi / (double) (waveTableSize);
 
 namespace tmf
 {
@@ -49,13 +46,7 @@ namespace tmf
         {
             waveTableBuffer.clear();
 
-            waveTableVolumeMultipliers = vector<float> (waveTableSize, 1.0f);
-
-            // We start at the first partial, and skip the phase indexs (odd)
-            for (int i = 2; i < waveTableSize; i += 2)
-            {
-                waveTableVolumeMultipliers[static_cast<size_t> (i)] = 1.0f / static_cast<float> (i / 2);
-            }
+            waveTableVolumeMultipliers = additiveWavetable::createHarmonicVolumeMultipliers();
         }
 
         /// Assigns a repeatable refresh phase before preparation. Example: manager voice one uses the half-period slot.
@@ -345,6 +336,7 @@ namespace tmf
 
         void generateWaveTable()
         {
+            additiveWavetable::saturateStereoHarmonics (generatedWaveTable);
             for (int i = 0; i < generatedWaveTable.getNumChannels(); ++i)
             {
                 auto* channelData = generatedWaveTable.getWritePointer (i);

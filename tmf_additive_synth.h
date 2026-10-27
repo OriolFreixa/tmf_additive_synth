@@ -8,6 +8,9 @@
 #include "AdditiveSynth/VoiceInterceptorAdditiveSynthManager.h"
 #include "AdditiveSynth/AdditiveSynthHarmonicCollector.h"
 #include "AdditiveSynth/AdditiveSynthHarmonicCollectorManager.h"
+#include "AdditiveSynth/AdditiveWavetableMath.h"
+#include "AdditiveSynth/HarmonicCollectorWithControls.h"
+#include "AdditiveSynth/AdditiveBaseWave.h"
 
 // Examples
 #include "AdditiveSynth/CollectorExamples/HarmonicCollectorSine.h"
@@ -15,6 +18,8 @@
 #include "AdditiveSynth/CollectorExamples/HarmonicCollectorOctaveHarmonics.h"
 #include "AdditiveSynth/CollectorExamples/HarmonicCollectorEnFifther.h"
 #include "AdditiveSynth/CollectorExamples/HarmonicCollectorUnevenBands.h"
+#include "AdditiveSynth/CollectorExamples/HarmonicCollectorShapes.h"
+#include "AdditiveSynth/CollectorExamples/HarmonicCollectorParity.h"
 
 /*
 BEGIN_JUCE_MODULE_DECLARATION

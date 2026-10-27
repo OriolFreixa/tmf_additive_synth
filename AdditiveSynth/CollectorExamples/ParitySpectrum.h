@@ -37,7 +37,11 @@ namespace tmf::paritySpectrum
     /// Returns the gain of one harmonic. Harmonics below `lowHarmonic` and above `highHarmonic` fall away at their slope.
     /// Example: `harmonicWeight (6, 4, 6.0206, 8, 6.0206)` is 1 and `harmonicWeight (16, 4, 6.0206, 8, 6.0206)` is 0.5.
     inline float harmonicWeight (
-        float harmonic, float lowHarmonic, float lowSlope, float highHarmonic, float highSlope)
+        float harmonic,
+        float lowHarmonic,
+        float lowSlope,
+        float highHarmonic,
+        float highSlope)
     {
         auto weight = 1.0f;
         if (harmonic < lowHarmonic)

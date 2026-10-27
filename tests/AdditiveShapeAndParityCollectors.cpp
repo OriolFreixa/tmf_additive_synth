@@ -20,7 +20,8 @@ namespace
 
     /// Reads full level, visible order and centred pan, then the control defaults, unless overridden.
     tmf::AdditiveBaseWave::ParameterReader makeReader (
-        const tmf::ControlledCollectorDefinition& definition, Overrides overrides)
+        const tmf::ControlledCollectorDefinition& definition,
+        Overrides overrides)
     {
         return [&definition, overrides = std::move (overrides)] (const std::string& parameterId) {
             if (const auto found = overrides.find (parameterId); found != overrides.end())

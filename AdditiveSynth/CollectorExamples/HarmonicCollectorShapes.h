@@ -17,7 +17,8 @@ namespace tmf
 {
     namespace ShapeCollectorControls
     {
-        namespace Triangle {
+        namespace Triangle
+        {
             enum Control : size_t {
                 flatten,
                 base,
@@ -25,14 +26,16 @@ namespace tmf
             };
         }
 
-        namespace Saw {
+        namespace Saw
+        {
             enum Control : size_t {
                 flatten,
                 curve
             };
         }
 
-        namespace Square {
+        namespace Square
+        {
             enum Control : size_t {
                 width,
                 edge

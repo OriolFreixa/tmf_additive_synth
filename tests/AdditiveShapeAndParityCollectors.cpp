@@ -40,6 +40,10 @@ namespace
                 if (parameterId == definition.controlId (index))
                     return definition.controls[index].defaultValue;
 
+            for (size_t index = 0; index < tmf::harmonicStereo::controlCount; ++index)
+                if (parameterId == definition.stereoControlId (index))
+                    return tmf::harmonicStereoControlSpecs()[index].defaultValue;
+
             FAIL ("Unexpected parameter " << parameterId);
             return 0.0f;
         };
@@ -162,7 +166,7 @@ TEST_CASE ("Triangle collector exposes its controls under the Shapes family", "[
     auto manager = makeManager (tmf::triangleCollectorDefinition());
     const auto descriptions = manager->getParameterDescriptions();
 
-    REQUIRE (descriptions.size() == 6);
+    REQUIRE (descriptions.size() == 9);
     CHECK (descriptions[0].id == "ShapeTriangle_LEVEL");
     CHECK (descriptions[1].id == "ShapeTriangle_ORDER");
     CHECK (descriptions[2].id == "ShapeTriangle_PAN");

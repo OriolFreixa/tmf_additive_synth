@@ -9,6 +9,8 @@
 #include "AdditiveSynth/AdditiveSynthHarmonicCollector.h"
 #include "AdditiveSynth/AdditiveSynthHarmonicCollectorManager.h"
 #include "AdditiveSynth/AdditiveWavetableMath.h"
+#include "AdditiveSynth/ControlledCollectorDefinition.h"
+#include "AdditiveSynth/HarmonicStereo.h"
 #include "AdditiveSynth/HarmonicCollectorWithControls.h"
 #include "AdditiveSynth/AdditiveBaseWave.h"
 

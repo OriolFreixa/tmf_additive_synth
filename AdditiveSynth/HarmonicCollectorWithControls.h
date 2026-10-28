@@ -12,7 +12,8 @@
 
 #pragma once
 #include "AdditiveSynthHarmonicCollectorManager.h"
-#include "AdditiveWavetableMath.h"
+#include "ControlledCollectorDefinition.h"
+#include "HarmonicStereo.h"
 #include <algorithm>
 #include <span>
 #include <string>
@@ -20,66 +21,23 @@
 
 namespace tmf
 {
-    /// One extra control of a collector. Example: `{ "_FLATTEN", "Flatten", { 0, 1, 0.001f }, 0.0f }`.
-    struct CollectorControlSpec
-    {
-        std::string suffix;
-        juce::String name;
-        juce::NormalisableRange<float> range;
-        float defaultValue = 0.0f;
-    };
-
-    /// Writes a packed spectrum for the given control values (same order as `controls`).
-    /// The target span is zeroed beforehand and spans `waveTableSize` entries.
-    using CollectorSpectrumBuilder = void (*) (std::span<const float> controlValues, std::span<float> spectrum);
-
-    /// Static description of one collector kind. Instances must outlive every collector built from them.
-    /// Example: `triangleCollectorDefinition()` returns an immortal definition with three controls.
-    struct ControlledCollectorDefinition
-    {
-        std::string id;
-        juce::String displayName;
-        SynthParameterGroupDescription family;
-        std::vector<CollectorControlSpec> controls;
-        CollectorSpectrumBuilder buildSpectrum = nullptr;
-
-        std::string levelId() const { return id + BaseParameterIdSuffixes::level; }
-        std::string orderId() const { return id + BaseParameterIdSuffixes::order; }
-        std::string panId() const { return id + BaseParameterIdSuffixes::pan; }
-
-        /// Returns the parameter ID of one control. Example: `definition.controlId (0)` is "ShapeTriangle_FLATTEN".
-        std::string controlId (size_t controlIndex) const
-        {
-            jassert (controlIndex < controls.size());
-            return id + controls[controlIndex].suffix;
-        }
-
-        /// Returns every parameter ID in manager order: level, order, pan, then the controls.
-        std::vector<std::string> allParameterIds() const
-        {
-            std::vector<std::string> ids { levelId(), orderId(), panId() };
-            for (size_t controlIndex = 0; controlIndex < controls.size(); ++controlIndex)
-                ids.push_back (controlId (controlIndex));
-
-            return ids;
-        }
-    };
-
     class HarmonicCollectorWithControls : public AdditiveSynthHarmonicCollector
     {
     public:
         explicit HarmonicCollectorWithControls (const ControlledCollectorDefinition& definitionToUse)
             : definition (definitionToUse)
         {
-            const auto controlCount = definition.controls.size();
+            const auto controlCount = definition.controls.size() + harmonicStereo::controlCount;
             baseValues.resize (controlCount);
             modulationOffsets.assign (controlCount, 0.0f);
             effectiveValues.resize (controlCount);
             cachedValues.assign (controlCount, 0.0f);
             for (size_t controlIndex = 0; controlIndex < controlCount; ++controlIndex)
             {
-                baseValues[controlIndex] = definition.controls[controlIndex].defaultValue;
-                controlIds.emplace_back (definition.controlId (controlIndex));
+                baseValues[controlIndex] = controlSpec (controlIndex).defaultValue;
+                controlIds.emplace_back (controlIndex < definition.controls.size()
+                                             ? definition.controlId (controlIndex)
+                                             : definition.stereoControlId (controlIndex - definition.controls.size()));
             }
 
             updateEffectiveValues();
@@ -88,9 +46,20 @@ namespace tmf
         /// Sets the unmodulated control values in definition order. Example: `collector.setControlValues ({ 0.5f, 0.0f, 0.0f })`.
         void setControlValues (std::span<const float> values)
         {
-            jassert (values.size() == baseValues.size());
-            const auto count = std::min (values.size(), baseValues.size());
+            jassert (values.size() == definition.controls.size());
+            const auto count = std::min (values.size(), definition.controls.size());
             std::copy_n (values.begin(), count, baseValues.begin());
+            updateEffectiveValues();
+        }
+
+        /// Sets stereo detail values in Spread/Tilt/Pivot order. Example: `collector.setStereoControlValues ({ 50, 0, 8 })`.
+        void setStereoControlValues (std::span<const float> values)
+        {
+            jassert (values.size() == harmonicStereo::controlCount);
+            if (values.size() != harmonicStereo::controlCount)
+                return;
+
+            std::copy (values.begin(), values.end(), baseValues.begin() + static_cast<std::ptrdiff_t> (definition.controls.size()));
             updateEffectiveValues();
         }
 
@@ -109,9 +78,8 @@ namespace tmf
 
             refreshSpectrumIfNeeded();
             const auto entryCount = std::min (tableSize, spectrum.size());
-            applyPanAndGainAndRenderToBuffer (
-                audioBuffer,
-                std::vector<float> (spectrum.begin(), spectrum.begin() + static_cast<std::ptrdiff_t> (entryCount)));
+            const auto stereo = effectiveValues.data() + definition.controls.size();
+            harmonicStereo::renderStereoSpectrum (audioBuffer, std::span<const float> { spectrum.data(), entryCount }, stereoDirections, level.getCurrentValue(), pan.getCurrentValue(), stereo[harmonicStereo::spread], stereo[harmonicStereo::tilt], stereo[harmonicStereo::pivot]);
         }
 
         std::optional<ModulationTargetBinding> bindModulationTarget (const juce::String& parameterId) override
@@ -148,6 +116,14 @@ namespace tmf
         }
 
     private:
+        const CollectorControlSpec& controlSpec (size_t index) const
+        {
+            if (index < definition.controls.size())
+                return definition.controls[index];
+
+            return harmonicStereoControlSpecs()[index - definition.controls.size()];
+        }
+
         std::optional<size_t> findControl (const juce::String& parameterId) const noexcept
         {
             for (size_t controlIndex = 0; controlIndex < controlIds.size(); ++controlIndex)
@@ -160,14 +136,14 @@ namespace tmf
         // Modulation arrives as a bipolar fraction of the control's span, like the base level, pan and order targets.
         void setModulation (size_t controlIndex, float value)
         {
-            const auto& range = definition.controls[controlIndex].range;
+            const auto& range = controlSpec (controlIndex).range;
             modulationOffsets[controlIndex] = value * (range.end - range.start);
             updateEffectiveValues();
         }
 
         float normalisedPosition (size_t controlIndex) const noexcept
         {
-            const auto& range = definition.controls[controlIndex].range;
+            const auto& range = controlSpec (controlIndex).range;
             return (effectiveValues[controlIndex] - range.start) / (range.end - range.start);
         }
 
@@ -175,7 +151,7 @@ namespace tmf
         {
             for (size_t controlIndex = 0; controlIndex < effectiveValues.size(); ++controlIndex)
             {
-                const auto& range = definition.controls[controlIndex].range;
+                const auto& range = controlSpec (controlIndex).range;
                 effectiveValues[controlIndex] = juce::jlimit (
                     range.start, range.end, baseValues[controlIndex] + modulationOffsets[controlIndex]);
             }
@@ -183,12 +159,14 @@ namespace tmf
 
         void refreshSpectrumIfNeeded()
         {
-            if (!spectrum.empty() && effectiveValues == cachedValues)
+            const std::span<const float> timbreValues { effectiveValues.data(), definition.controls.size() };
+            if (!spectrum.empty() && std::equal (timbreValues.begin(), timbreValues.end(), cachedValues.begin()))
                 return;
 
             // Rebuilding can cost an FFT, so it only happens when a control actually moved.
             spectrum.assign (static_cast<size_t> (waveTableSize), 0.0f);
-            definition.buildSpectrum (effectiveValues, spectrum);
+            definition.buildSpectrum (timbreValues, spectrum);
+            stereoDirections = harmonicStereo::spreadDirections (spectrum);
             cachedValues = effectiveValues;
         }
 
@@ -199,6 +177,7 @@ namespace tmf
         std::vector<float> effectiveValues;
         std::vector<float> cachedValues;
         std::vector<float> spectrum;
+        std::vector<float> stereoDirections;
     };
 
     class HarmonicCollectorWithControlsManager : public HarmonicCollectorManagerInterface
@@ -227,6 +206,7 @@ namespace tmf
                 collectors[index]->setParams (params);
                 collectors[index]->setId (definition.id);
                 collectors[index]->setControlValues (controlValues);
+                collectors[index]->setStereoControlValues (stereoValues);
             }
 
             return collectors[index];
@@ -248,17 +228,25 @@ namespace tmf
                     groupPath, definition.controlId (controlIndex), definition.displayName + " " + control.name, control.range, control.defaultValue, true));
             }
 
+            for (size_t index = 0; index < harmonicStereo::controlCount; ++index)
+            {
+                const auto& control = harmonicStereoControlSpecs()[index];
+                descriptions.push_back (makeFloatSynthParameter (groupPath, definition.stereoControlId (index), definition.displayName + " " + control.name, control.range, control.defaultValue, true));
+            }
+
             return descriptions;
         }
 
         void applyParameterSnapshot (std::span<const float> values) override
         {
-            jassert (values.size() == 3 + definition.controls.size());
-            if (values.size() != 3 + definition.controls.size())
+            const size_t timbreEnd = 3 + definition.controls.size();
+            jassert (values.size() == timbreEnd || values.size() == timbreEnd + harmonicStereo::controlCount);
+            if (values.size() != timbreEnd && values.size() != timbreEnd + harmonicStereo::controlCount)
                 return;
 
             params = { values[0], values[2], static_cast<int> (values[1]) };
-            std::copy (values.begin() + 3, values.end(), controlValues.begin());
+            std::copy_n (values.begin() + 3, controlValues.size(), controlValues.begin());
+            resetStereoSnapshot (values.subspan (timbreEnd));
             for (const auto& collector : collectors)
             {
                 if (collector == nullptr)
@@ -266,13 +254,21 @@ namespace tmf
 
                 collector->setParams (params);
                 collector->setControlValues (controlValues);
+                collector->setStereoControlValues (stereoValues);
             }
         }
 
     private:
+        void resetStereoSnapshot (std::span<const float> values)
+        {
+            for (size_t index = 0; index < stereoValues.size(); ++index)
+                stereoValues[index] = values.empty() ? harmonicStereoControlSpecs()[index].defaultValue : values[index];
+        }
+
         const ControlledCollectorDefinition& definition;
         AdditiveSynthHarmonicCollectorParams params;
         std::vector<float> controlValues;
+        std::array<float, harmonicStereo::controlCount> stereoValues { 0.0f, 0.0f, 8.0f };
         std::vector<std::shared_ptr<HarmonicCollectorWithControls>> collectors;
     };
 }
